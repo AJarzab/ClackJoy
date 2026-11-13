@@ -495,6 +495,13 @@ textarea::placeholder{color:var(--muted)}
 .lesson .star.on{color:var(--warn)}
 .lesson .lname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lesson .lbest{font-size:10px;color:var(--dim);font-variant-numeric:tabular-nums}
+.lesson.skip{opacity:.5;cursor:not-allowed}
+.lesson.skip .lname{text-decoration:line-through}
+.lgroup{
+  font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);
+  padding:8px 7px 2px;flex:0 0 auto;
+}
+.lgroup:first-child{padding-top:2px}
 .spark{margin-top:6px;width:100%;height:46px;display:block}
 #histBest{margin-top:4px}
 .chip{
@@ -1911,6 +1918,10 @@ var KNOWN_BOARDS = [
 ];
 KNOWN_BOARDS.forEach(function(b){ if (b.uid) UID_MAP[b.uid] = b; });
 
+/* Built-in geometries resolved before cache/network/device. */
+var BUILTIN_DEFS = {};
+BUILTIN_DEFS[SILAKKA_UID] = SILAKKA_DEF;
+
 function boardByUid(uid){
   uid = String(uid || '');
   if (UID_MAP[uid]) return UID_MAP[uid];
@@ -1930,7 +1941,7 @@ function resolveBoardForUid(uid){
 }
 function definitionUrls(entry){
   var base = 'https://raw.githubusercontent.com/vial-kb/vial-qmk/vial/' + entry.path;
-  return [base + '/keyboards/vial.json', base + '/keymaps/vial/vial.json'];
+  return [base + '/vial.json', base + '/keymaps/vial/vial.json'];
 }
 
 /* ---------------- definition cache ---------------- */
@@ -2026,10 +2037,11 @@ function applyDefinition(def, meta){
   var model = parseKle(kle, rows, cols, name);
   model.source = meta.source || 'board';
   model.uid = meta.uid || null;
+  model.connected = !!meta.connected;
   app.board = model;
 
-  /* keymap: keep current layers, resized to the new matrix */
-  app.layers = normalizeLayerDims(app.layers, rows, cols);
+  /* keymap: prefer the supplied live map, otherwise keep the current layers */
+  app.layers = normalizeLayerDims(meta.layers || app.layers, rows, cols);
 
   /* finger overrides for this board */
   app.fingerOverrides = (meta.fingers && typeof meta.fingers === 'object') ? meta.fingers : {};
@@ -2120,82 +2132,434 @@ function resetBoard(){
   return app.board;
 }
 
-/* ---------------- WebHID (guarded, Chrome/Edge only) ---------------- */
+/* ---------------- WebHID (guarded, Chrome/Edge only) ----------------
+   Vial wire protocol (verified against vial-qmk quantum/vial.c and
+   vial-gui protocol/keyboard_comm.py):
+
+     All reports are 32 bytes, report id 0. Vial commands use msg[0]=0xFE
+     and dispatch on msg[1]; the firmware overwrites the report, so nothing
+     is echoed back:
+       0x00 GET_KEYBOARD_ID -> [0..3] protocol version (LE),
+                               [4..11] 8-byte keyboard uid (LE),
+                               [12]    vialrgb flag
+       0x01 GET_SIZE        -> [0..3] definition size (LE uint32)
+       0x02 GET_DEFINITION  -> request [0xFE,0x02,page_lo,page_hi]
+                               response = the 32-byte page at page*32
+
+     VIA commands echo the command and append a payload:
+       0x11 GET_LAYER_COUNT -> [0x11, count, ...]
+       0x12 KEYMAP_GET_BUFFER request [0x12,off_hi,off_lo,size]
+            response [0x12,off_hi,off_lo,size,payload...], payload at 4
+
+   Keycodes are 16-bit big-endian, layer-major, and use the Vial v6
+   numbering (MO(n) = 0x5220 + n, LT = 0x4000 ...). */
+var HID_TIMEOUT = 800;
+var HID_DEF_MAX = 4 * 1024 * 1024;
+var HID_REPORT_SIZE = 32;
+var HID_READ_CHUNK = 28;
+var VIAL_HID_FILTER = { usagePage: 0xFF60, usage: 0x61 };
+var HID_COMPRESSED_MESSAGE =
+  'This keyboard\'s definition is LZMA-compressed. Import its .vil export or upload vial.json to load this board.';
+
+var hid = {
+  device: null, uid: null, name: null, connected: false, busy: false,
+  snapshot: null, disconnect: null
+};
+
 function hidSupported(){
   return !!(typeof navigator !== 'undefined' && navigator.hid && navigator.hid.requestDevice);
 }
 
-var VIAL_HID_FILTER = { vendorId: undefined, usagePage: 0xFF60, usage: 0x61 };
+/* ---- per-device transport state: one pending report, one queue ---- */
+var hidStates = (typeof WeakMap === 'function') ? new WeakMap() : null;
+var hidStateList = [];
+
+function hidStateFor(device){
+  var st = null;
+  if (hidStates){
+    st = hidStates.get(device);
+  } else {
+    for (var i = 0; i < hidStateList.length; i++){
+      if (hidStateList[i].device === device){ st = hidStateList[i]; break; }
+    }
+  }
+  if (st) return st;
+
+  st = { device: device, queue: Promise.resolve(), pending: null, closed: false,
+         listener: null, disconnectListener: null };
+  st.listener = function(ev){
+    if (!st.pending) return;              /* unsolicited report: ignore */
+    var p = st.pending;
+    st.pending = null;
+    clearTimeout(p.timer);
+    p.resolve(hidReportBytes(ev));
+  };
+  st.disconnectListener = function(){
+    hidMarkClosed(device, 'the keyboard is no longer connected');
+  };
+  try { device.addEventListener('inputreport', st.listener); } catch(e){ /* no listener support */ }
+  try { device.addEventListener('disconnect', st.disconnectListener); } catch(e){ /* no listener support */ }
+  if (hidStates) hidStates.set(device, st);
+  else hidStateList.push(st);
+  return st;
+}
+
+function hidReportBytes(ev){
+  var out = new Uint8Array(HID_REPORT_SIZE);
+  var data = ev && ev.data;
+  if (data){
+    var n = (data.byteLength !== undefined) ? data.byteLength : (data.length || 0);
+    n = Math.min(HID_REPORT_SIZE, n);
+    for (var i = 0; i < n; i++) out[i] = data.getUint8 ? data.getUint8(i) : (data[i] & 0xFF);
+  }
+  return out;
+}
+
+function hidResetDevice(device){
+  var st = hidStateFor(device);
+  st.closed = false;
+  st.queue = Promise.resolve();
+}
+
+function hidMarkClosed(device, reason){
+  if (!device) return;
+  var st = hidStateFor(device);
+  st.closed = true;
+  if (st.pending){
+    var p = st.pending;
+    st.pending = null;
+    clearTimeout(p.timer);
+    p.reject(new Error(reason || 'the keyboard is no longer connected'));
+  }
+}
 
 function hidTxn(device, payload){
-  /* VIA/Vial report: report id 0, 32-byte buffer, echo back the response. */
-  var out = new Uint8Array(32);
-  for (var i = 0; i < payload.length && i < 32; i++) out[i] = payload[i] & 0xFF;
-  return Promise.resolve()
-    .then(function(){ return device.sendReport(0, out); })
-    .then(function(){ return device.receiveReport ? device.receiveReport(0) : null; })
-    .then(function(res){
-      if (!res) return new Uint8Array(0);
-      return (res.data && res.data.buffer) ? new Uint8Array(res.data.buffer) : new Uint8Array(res);
+  if (!device) return Promise.reject(new Error('no keyboard is connected'));
+  var st = hidStateFor(device);
+
+  function run(){
+    return new Promise(function(resolve, reject){
+      if (!device || st.closed || device.opened === false){
+        reject(new Error('the keyboard is no longer connected'));
+        return;
+      }
+      var out = new Uint8Array(HID_REPORT_SIZE);
+      for (var i = 0; i < payload.length && i < HID_REPORT_SIZE; i++) out[i] = payload[i] & 0xFF;
+
+      var entry = { resolve: resolve, reject: reject, timer: null };
+      entry.timer = setTimeout(function(){
+        if (st.pending === entry) st.pending = null;
+        reject(new Error(device.opened === false
+          ? 'the keyboard is no longer connected'
+          : 'the keyboard did not reply in time'));
+      }, HID_TIMEOUT);
+      st.pending = entry;
+
+      Promise.resolve()
+        .then(function(){ return device.sendReport(0, out); })
+        .catch(function(err){
+          if (st.pending === entry) st.pending = null;
+          clearTimeout(entry.timer);
+          reject(err instanceof Error ? err : new Error(String(err)));
+        });
     });
+  }
+
+  var next = st.queue.then(run, run);     /* keep order even after a failure */
+  st.queue = next.then(function(){}, function(){});
+  return next;
+}
+
+/* ---- protocol decoders ---- */
+function hidUidString(bytes){
+  if (typeof BigInt === 'function'){
+    var v = BigInt(0);
+    for (var i = 7; i >= 0; i--) v = (v * BigInt(256)) + BigInt(bytes[i] | 0);
+    return v.toString();
+  }
+  /* pre-BigInt fallback: base-1e7 limbs, little-endian */
+  var limbs = [0];
+  for (var j = 7; j >= 0; j--){
+    var carry = bytes[j] | 0;
+    for (var k = 0; k < limbs.length; k++){
+      var cur = limbs[k] * 256 + carry;
+      limbs[k] = cur % 10000000;
+      carry = Math.floor(cur / 10000000);
+    }
+    while (carry > 0){
+      limbs.push(carry % 10000000);
+      carry = Math.floor(carry / 10000000);
+    }
+  }
+  var out = String(limbs[limbs.length - 1]);
+  for (var m = limbs.length - 2; m >= 0; m--){
+    var part = String(limbs[m]);
+    out += '0000000'.slice(part.length) + part;
+  }
+  return out;
+}
+
+function hidUint32LE(bytes){
+  return ((bytes[0] | 0) | ((bytes[1] | 0) << 8) | ((bytes[2] | 0) << 16) | ((bytes[3] | 0) << 24)) >>> 0;
+}
+
+function hidIsXz(bytes){
+  var magic = [0xFD, 0x37, 0x7A, 0x58, 0x5A, 0x00];
+  if (!bytes || bytes.length < magic.length) return false;
+  for (var i = 0; i < magic.length; i++){
+    if (bytes[i] !== magic[i]) return false;
+  }
+  return true;
+}
+
+function hidUtf8(bytes){
+  if (typeof TextDecoder === 'function'){
+    try { return new TextDecoder('utf-8').decode(bytes); } catch(e){ /* fall through */ }
+  }
+  var s = '', i = 0;
+  while (i < bytes.length){
+    var b = bytes[i++];
+    if (b < 0x80){ s += String.fromCharCode(b); }
+    else if (b >= 0xC0 && b < 0xE0 && i < bytes.length){
+      s += String.fromCharCode(((b & 0x1F) << 6) | (bytes[i++] & 0x3F));
+    } else if (b >= 0xE0 && b < 0xF0 && i + 1 < bytes.length){
+      s += String.fromCharCode(((b & 0x0F) << 12) | ((bytes[i++] & 0x3F) << 6) | (bytes[i++] & 0x3F));
+    } else if (b >= 0xF0 && b < 0xF8 && i + 2 < bytes.length){
+      var cp = ((b & 0x07) << 18) | ((bytes[i++] & 0x3F) << 12) |
+               ((bytes[i++] & 0x3F) << 6) | (bytes[i++] & 0x3F);
+      cp -= 0x10000;
+      s += String.fromCharCode(0xD800 + (cp >> 10), 0xDC00 + (cp & 0x3FF));
+    } else {
+      s += '\uFFFD';
+    }
+  }
+  return s;
 }
 
 function hidReadKeyboardId(device){
   return hidTxn(device, [0xFE, 0x00]).then(function(buf){
-    var lo = 0, hi = 0;
-    for (var i = 0; i < 4; i++) lo += (buf[4 + i] || 0) * Math.pow(256, i);
-    for (var j = 0; j < 4; j++) hi += (buf[8 + j] || 0) * Math.pow(256, j);
-    return { uid: String(hi * 4294967296 + lo), vial: true };
+    return {
+      protocol: hidUint32LE(buf),
+      uid: hidUidString(buf.subarray(4, 12)),
+      rgb: !!buf[12],
+      vial: true
+    };
   });
 }
 
-function hidReadDefinition(device, uid){
-  return hidTxn(device, [0xFE, 0x02]).then(function(sizeBuf){
-    var size = (sizeBuf[0] || 0) | ((sizeBuf[1] || 0) << 8);
-    if (!size || size > DEF_CACHE_MAX) throw new Error('definition size unavailable');
-    var chunks = [];
-    var offset = 0;
-    function next(){
-      if (offset >= size) return Promise.resolve(chunks.join(''));
-      return hidTxn(device, [0xFE, 0x01, offset & 0xFF, (offset >> 8) & 0xFF]).then(function(buf){
-        var take = Math.min(28, size - offset);
-        chunks.push(String.fromCharCode.apply(null, Array.prototype.slice.call(buf, 0, take)));
-        offset += take;
-        return next();
+function hidReadDefinition(device){
+  return hidTxn(device, [0xFE, 0x01]).then(function(sizeBuf){
+    var size = hidUint32LE(sizeBuf);
+    if (!size) throw new Error('definition size unavailable (keyboard returned 0 bytes)');
+    if (size > HID_DEF_MAX) throw new Error('definition size unavailable (' + size + ' bytes)');
+
+    var bytes = new Uint8Array(size);
+    var pages = Math.ceil(size / HID_REPORT_SIZE);
+    var page = 0;
+    function nextPage(){
+      if (page >= pages) return Promise.resolve(bytes);
+      var p = page;
+      return hidTxn(device, [0xFE, 0x02, p & 0xFF, (p >> 8) & 0xFF]).then(function(res){
+        var take = Math.min(HID_REPORT_SIZE, size - p * HID_REPORT_SIZE);
+        for (var i = 0; i < take; i++) bytes[p * HID_REPORT_SIZE + i] = res[i] || 0;
+        page++;
+        return nextPage();
       });
     }
-    return next().then(function(text){
-      try { return JSON.parse(text); } catch(e){ throw new Error('bad definition from keyboard'); }
+    return nextPage().then(function(all){
+      if (hidIsXz(all)){
+        var err = new Error(HID_COMPRESSED_MESSAGE);
+        err.hidCode = 'compressed';
+        throw err;
+      }
+      var text = hidUtf8(all);
+      try { return JSON.parse(text); }
+      catch(e){ throw new Error('the definition stored on the keyboard is not valid JSON'); }
     });
   });
 }
 
-function hidReadKeymap(device, layers, rows, cols){
-  var out = [];
-  var perLayer = rows * cols;
-  function layerAt(L){
-    if (L >= layers) return Promise.resolve(out);
-    var cells = [];
-    function chunk(offset){
-      if (offset >= perLayer) return Promise.resolve(cells);
-      return hidTxn(device, [0x04, L, offset & 0xFF, (offset >> 8) & 0xFF]).then(function(buf){
-        for (var i = 0; i < 28 && offset + i < perLayer; i++){
-          cells.push(buf[1 + i] !== undefined ? buf[1 + i] : 0);
-        }
-        offset += 28;
-        return chunk(offset);
-      });
-    }
-    return chunk(0).then(function(cells){
-      var grid = [];
-      for (var r = 0; r < rows; r++){
-        grid.push(cells.slice(r * cols, r * cols + cols));
-      }
-      out.push(grid);
-      return layerAt(L + 1);
+function hidReadLayerCount(device){
+  return hidTxn(device, [0x11]).then(function(buf){
+    if (buf[0] !== 0x11) throw new Error('unexpected reply to GET_LAYER_COUNT (0x' + buf[0].toString(16) + ')');
+    var n = buf[1];
+    if (!n) throw new Error('keyboard reported 0 layers');
+    return n;
+  });
+}
+
+function hidReadKeymapBuffer(device, layers, rows, cols, onProgress){
+  if (!layers || !rows || !cols) return Promise.reject(new Error('board geometry is unknown'));
+  var perLayer = rows * cols * 2;
+  var total = layers * perLayer;
+  if (total > 65535) return Promise.reject(new Error('keymap buffer is too large (' + total + ' bytes)'));
+
+  var out = new Uint8Array(total);
+  var chunks = Math.ceil(total / HID_READ_CHUNK);
+  var done = 0;
+  function nextChunk(){
+    if (done >= chunks) return Promise.resolve(out);
+    var offset = done * HID_READ_CHUNK;
+    var size = Math.min(HID_READ_CHUNK, total - offset);
+    if (onProgress) onProgress(Math.floor(offset / perLayer) + 1, layers);
+    return hidTxn(device, [0x12, (offset >> 8) & 0xFF, offset & 0xFF, size]).then(function(buf){
+      if (buf[0] !== 0x12) throw new Error('unexpected reply to KEYMAP_GET_BUFFER (0x' + buf[0].toString(16) + ')');
+      for (var i = 0; i < size; i++) out[offset + i] = buf[4 + i] || 0;
+      done++;
+      return nextChunk();
     });
   }
-  return layerAt(0);
+  return nextChunk();
+}
+
+/* Vial v6 numeric keycodes -> the canonical names used by .vil files.
+   The app stores names (not numbers), so this keeps connected keymaps
+   identical to an imported .vil. */
+var HID_KEYCODE_NAMES = (function(){
+  var m = {};
+  function fill(base, names){
+    for (var i = 0; i < names.length; i++){ if (names[i]) m[base + i] = names[i]; }
+  }
+  fill(0x04, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(function(c){ return 'KC_' + c; }));
+  fill(0x1E, ['KC_1','KC_2','KC_3','KC_4','KC_5','KC_6','KC_7','KC_8','KC_9','KC_0']);
+  fill(0x28, ['KC_ENTER','KC_ESCAPE','KC_BSPACE','KC_TAB','KC_SPACE','KC_MINUS',
+              'KC_EQUAL','KC_LBRACKET','KC_RBRACKET','KC_BSLASH','KC_NONUS_HASH',
+              'KC_SCOLON','KC_QUOTE','KC_GRAVE','KC_COMMA','KC_DOT','KC_SLASH',
+              'KC_CAPSLOCK']);
+  fill(0x3A, (function(){
+    var a = []; for (var i = 1; i <= 12; i++) a.push('KC_F' + i); return a;
+  })());
+  fill(0x46, ['KC_PSCREEN','KC_SCROLLLOCK','KC_PAUSE','KC_INSERT','KC_HOME','KC_PGUP',
+              'KC_DELETE','KC_END','KC_PGDOWN','KC_RIGHT','KC_LEFT','KC_DOWN','KC_UP',
+              'KC_NUMLOCK','KC_KP_SLASH','KC_KP_ASTERISK','KC_KP_MINUS','KC_KP_PLUS',
+              'KC_KP_ENTER','KC_KP_1','KC_KP_2','KC_KP_3','KC_KP_4','KC_KP_5',
+              'KC_KP_6','KC_KP_7','KC_KP_8','KC_KP_9','KC_KP_0','KC_KP_DOT',
+              'KC_NONUS_BSLASH','KC_APPLICATION','KC_KB_POWER','KC_KP_EQUAL']);
+  fill(0x68, (function(){
+    var a = []; for (var i = 13; i <= 24; i++) a.push('KC_F' + i); return a;
+  })());
+  fill(0x74, ['KC_EXECUTE','KC_HELP','KC_MENU','KC_SELECT','KC_STOP','KC_AGAIN',
+              'KC_UNDO','KC_CUT','KC_COPY','KC_PASTE','KC_FIND']);
+  fill(0x87, ['KC_INTERNATIONAL_1','KC_INTERNATIONAL_2','KC_INTERNATIONAL_3',
+              'KC_INTERNATIONAL_4','KC_INTERNATIONAL_5','KC_INTERNATIONAL_6',
+              'KC_INTERNATIONAL_7','KC_INTERNATIONAL_8','KC_INTERNATIONAL_9']);
+  fill(0x90, ['KC_LANGUAGE_1','KC_LANGUAGE_2','KC_LANGUAGE_3','KC_LANGUAGE_4',
+              'KC_LANGUAGE_5','KC_LANGUAGE_6','KC_LANGUAGE_7','KC_LANGUAGE_8',
+              'KC_LANGUAGE_9']);
+  fill(0xA5, ['KC_SYSTEM_POWER','KC_SYSTEM_SLEEP','KC_SYSTEM_WAKE','KC_AUDIO_MUTE',
+              'KC_AUDIO_VOL_UP','KC_AUDIO_VOL_DOWN','KC_MEDIA_NEXT_TRACK',
+              'KC_MEDIA_PREV_TRACK','KC_MEDIA_STOP','KC_MEDIA_PLAY_PAUSE',
+              'KC_MEDIA_SELECT','KC_MEDIA_EJECT','KC_MAIL','KC_CALCULATOR',
+              'KC_MY_COMPUTER','KC_WWW_SEARCH','KC_WWW_HOME','KC_WWW_BACK',
+              'KC_WWW_FORWARD','KC_WWW_STOP','KC_WWW_REFRESH','KC_WWW_FAVORITES',
+              'KC_MEDIA_FAST_FORWARD','KC_MEDIA_REWIND','KC_BRIGHTNESS_UP',
+              'KC_BRIGHTNESS_DOWN']);
+  fill(0xCD, ['QK_MOUSE_CURSOR_UP','QK_MOUSE_CURSOR_DOWN','QK_MOUSE_CURSOR_LEFT',
+              'QK_MOUSE_CURSOR_RIGHT','QK_MOUSE_BUTTON_1','QK_MOUSE_BUTTON_2',
+              'QK_MOUSE_BUTTON_3','QK_MOUSE_BUTTON_4','QK_MOUSE_BUTTON_5',
+              'QK_MOUSE_BUTTON_6','QK_MOUSE_BUTTON_7','QK_MOUSE_BUTTON_8',
+              'QK_MOUSE_WHEEL_UP','QK_MOUSE_WHEEL_DOWN','QK_MOUSE_WHEEL_LEFT',
+              'QK_MOUSE_WHEEL_RIGHT','QK_MOUSE_ACCELERATION_0','QK_MOUSE_ACCELERATION_1',
+              'QK_MOUSE_ACCELERATION_2']);
+  fill(0xE0, ['KC_LEFT_CTRL','KC_LEFT_SHIFT','KC_LEFT_ALT','KC_LEFT_GUI',
+              'KC_RIGHT_CTRL','KC_RIGHT_SHIFT','KC_RIGHT_ALT','KC_RIGHT_GUI']);
+  return m;
+})();
+
+function hidLayerKeyName(code){
+  var bases = [
+    [0x4000, 'LT'], [0x5000, 'LM'], [0x5200, 'TO'], [0x5220, 'MO'],
+    [0x5240, 'DF'], [0x5260, 'TG'], [0x5280, 'OSL'], [0x52C0, 'TT'],
+    [0x52E0, 'PDF'], [0x5700, 'TD']
+  ];
+  for (var i = 0; i < bases.length; i++){
+    var base = bases[i][0], fn = bases[i][1];
+    if (base === 0x4000){
+      if (code >= 0x4000 && code < 0x5000){
+        var layer = (code >> 8) & 0x0F;
+        var tap = code & 0xFF;
+        if (!tap) return null;
+        return 'LT(' + layer + ',' + hidKeycodeName(tap) + ')';
+      }
+      continue;
+    }
+    if (base === 0x5700){
+      if (code >= 0x5700 && code < 0x5800) return 'TD(' + (code - 0x5700) + ')';
+      continue;
+    }
+    if (base === 0x5000) continue;       /* LM needs a mod argument; leave numeric */
+    if (code >= base && code < base + 32) return fn + '(' + (code - base) + ')';
+  }
+  return null;
+}
+
+function hidKeycodeName(code){
+  code = code & 0xFFFF;
+  if (code === 0x0000) return -1;
+  if (code === 0x0001) return 'KC_TRNS';
+  var layerName = hidLayerKeyName(code);
+  if (layerName) return layerName;
+  var name = HID_KEYCODE_NAMES[code];
+  if (!name) return code;
+  return normalizeKeycode(name);
+}
+
+function decodeKeymapBuffer(buffer, layers, rows, cols){
+  var out = [];
+  var stride = rows * cols;
+  for (var L = 0; L < layers; L++){
+    var grid = [];
+    for (var r = 0; r < rows; r++){
+      var row = [];
+      for (var c = 0; c < cols; c++){
+        var off = (L * stride + r * cols + c) * 2;
+        var code = ((buffer[off] || 0) << 8) | (buffer[off + 1] || 0);
+        row.push(hidKeycodeName(code));
+      }
+      grid.push(row);
+    }
+    out.push(grid);
+  }
+  return out;
+}
+
+function hidReadKeymap(device, layers, rows, cols, onProgress){
+  return hidReadKeymapBuffer(device, layers, rows, cols, onProgress).then(function(buffer){
+    return decodeKeymapBuffer(buffer, layers, rows, cols);
+  });
+}
+
+/* ---- board resolution + connect flow ---- */
+function hidCloseQuietly(device){
+  if (!device || !device.close) return Promise.resolve();
+  return Promise.resolve().then(function(){ return device.close(); }).catch(function(){});
+}
+
+function hidFailure(err, step){
+  var msg = (err && err.message) ? err.message : String(err);
+  var out = new Error(msg);
+  out.hidCode = err && err.hidCode;
+  out.step = step;
+  return out;
+}
+
+function resolveConnectedDefinition(device, id){
+  var entry = boardByUid(id.uid);
+  var cached = readCachedDefinition(id.uid);
+  if (cached) return Promise.resolve({ def: cached, name: cached.name || (entry && entry.name) });
+
+  var builtin = BUILTIN_DEFS[id.uid];
+  if (builtin) return Promise.resolve({ def: builtin, name: builtin.name || (entry && entry.name) });
+
+  var fetched = entry ? fetchDefinition(entry) : Promise.reject(new Error('unknown board'));
+  return fetched.then(function(def){
+    return { def: def, name: def.name || entry.name };
+  }).catch(function(){
+    /* Last resort: the definition stored on the keyboard itself. */
+    return hidReadDefinition(device).then(function(def){
+      return { def: def, name: def.name || (entry && entry.name) };
+    });
+  });
 }
 
 function connectKeyboard(){
@@ -2203,49 +2567,238 @@ function connectKeyboard(){
     toast('WebHID is not available in this browser — use .vil import instead.', true);
     return Promise.resolve({ status: 'unsupported' });
   }
-  return navigator.hid.requestDevice({ filters: [VIAL_HID_FILTER] })
+  if (hid.busy) return Promise.resolve({ status: 'busy' });
+  if (hid.connected) return Promise.resolve({ status: 'connected', already: true });
+
+  hid.busy = true;
+  hid.snapshot = snapshotBoardState();
+  updateHidUi();
+  var device = null;
+  var step = 'selecting a keyboard';
+
+  return Promise.resolve()
+    .then(function(){ return navigator.hid.requestDevice({ filters: [VIAL_HID_FILTER] }); })
     .then(function(devices){
-      var dev = devices && devices[0];
-      if (!dev) return { status: 'cancelled' };
-      return Promise.resolve(dev.open ? dev.open() : null)
-        .then(function(){ return hidReadKeyboardId(dev); })
-        .then(function(id){
-          return hidReadDefinition(dev, id.uid).then(function(def){
-            var layers = def && def.matrix ? (def.matrix.rows || 10) * 0 : 0;
-            return { id: id, def: def };
-          });
+      device = devices && devices[0];
+      if (!device){
+        hid.snapshot = null;
+        toast('No keyboard selected. If yours is not listed, import a .vil export instead.', true);
+        return { status: 'cancelled' };
+      }
+      step = 'opening the keyboard';
+      return Promise.resolve()
+        .then(function(){ return device.open ? device.open() : null; })
+        .catch(function(err){
+          if (device.opened === false){
+            throw new Error('the keyboard could not be opened — it may be in use by Vial or another tab');
+          }
+          throw err;
         })
-        .then(function(res){
-          var def = res.def;
-          var rows = (def.matrix && def.matrix.rows) || 10;
-          var cols = (def.matrix && def.matrix.cols) || 6;
-          var nLayers = def.layers || 4;
-          return hidReadKeymap(dev, nLayers, rows, cols).then(function(layers){
-            var entry = boardByUid(res.id.uid);
-            app.layers = normalizeLayerDims(layers.length ? layers : app.layers, rows, cols);
-            applyDefinition(def, { name: (entry && entry.name) || def.name || 'Keyboard', uid: res.id.uid, source: 'board' });
-            persistBoard();
-            toast('Connected: ' + app.board.name + ' (' + res.id.uid + ')');
-            return { status: 'connected', uid: res.id.uid, board: app.board, layers: app.layers.length };
+        .then(function(){
+          if (device.opened === false) throw new Error('the keyboard could not be opened — it may be in use by Vial or another tab');
+          hidResetDevice(device);
+        })
+        .then(function(){
+          step = 'reading the keyboard id';
+          return hidReadKeyboardId(device);
+        })
+        .then(function(id){
+          if (!id.protocol){
+            throw new Error('the keyboard did not report a Vial protocol version');
+          }
+          step = 'resolving the board definition';
+          return resolveConnectedDefinition(device, id).then(function(found){
+            var def = found.def;
+            var rows = (def.matrix && +def.matrix.rows) || BOARD_ROWS;
+            var cols = (def.matrix && +def.matrix.cols) || BOARD_COLS;
+            var name = found.name || def.name || ('Keyboard ' + id.uid);
+
+            step = 'reading the layer count';
+            return hidReadLayerCount(device).then(function(layerCount){
+              step = 'reading the keymap';
+              return hidReadKeymap(device, layerCount, rows, cols, function(layer, total){
+                toast('Reading keymap ' + layer + '/' + total + '…');
+              }).then(function(layers){
+                step = 'applying the board';
+                applyDefinition(def, {
+                  name: name,
+                  uid: id.uid,
+                  source: 'board',
+                  layers: layers,
+                  connected: true
+                });
+                renderLessons();
+                hid.device = device;
+                hid.uid = id.uid;
+                hid.name = app.board.name;
+                hid.connected = true;
+                hid.disconnect = function(){ onKeyboardUnplugged(device); };
+                try { device.addEventListener('disconnect', hid.disconnect); } catch(e){}
+                updateHidUi();
+                toast('Connected: ' + id.uid + ' · ' + app.board.name);
+                return {
+                  status: 'connected', uid: id.uid, protocol: id.protocol,
+                  board: app.board, layers: app.layers.length
+                };
+              });
+            });
           });
         })
         .catch(function(err){
-          toast('Keyboard connection failed: ' + (err && err.message ? err.message : err), true);
-          return { status: 'error', message: String(err && err.message || err) };
+          throw hidFailure(err, step);
         });
     })
     .catch(function(err){
-      if (err && /denied|permission/i.test(String(err.name || err.message || ''))){
-        toast('Permission denied — allow HID access and try again.', true);
-        return { status: 'denied' };
+      var name = String((err && err.name) || '');
+      var msg = String((err && err.message) || err || '');
+      var status = 'error';
+
+      if (name === 'SecurityError' || /security/i.test(name)){
+        status = 'denied';
+        toast('HID access is blocked. Open this page over https:// or localhost and allow HID access.', true);
+      } else if (name === 'NotFoundError'){
+        status = 'notfound';
+        toast('No matching keyboard was listed. Check the cable, or import its .vil export instead.', true);
+      } else if (name === 'NotAllowedError' || /cancel/i.test(name)){
+        status = 'cancelled';
+        toast('No keyboard selected. If yours is not listed, import a .vil export instead.', true);
+      } else if (err && err.hidCode === 'compressed'){
+        status = 'compressed';
+        toast(HID_COMPRESSED_MESSAGE, true);
+      } else if (err && err.step){
+        toast('Could not connect while ' + err.step + ': ' + msg, true);
+      } else {
+        toast('Could not connect: ' + msg, true);
       }
-      if (err && err.name === 'NotFoundError'){
-        toast('No matching keyboard found. Check the cable and try again.', true);
-        return { status: 'notfound' };
-      }
-      toast('Could not open the keyboard.', true);
-      return { status: 'error', message: String(err && err.message || err) };
+
+      return hidCloseQuietly(device).then(function(){
+        if (!hid.connected && hid.snapshot){
+          restoreBoardState(hid.snapshot);
+          hid.snapshot = null;
+        }
+        return { status: status, message: msg };
+      });
+    })
+    .then(function(result){
+      hid.busy = false;
+      updateHidUi();
+      return result;
+    })
+    .catch(function(err){
+      /* Last-resort guard: never leave an unhandled rejection behind. */
+      hid.busy = false;
+      hid.snapshot = null;
+      updateHidUi();
+      var message = String((err && err.message) || err);
+      toast('Could not connect: ' + message, true);
+      return { status: 'error', message: message };
     });
+}
+
+function snapshotBoardState(){
+  return {
+    board: app.board,
+    layers: app.layers,
+    fingers: app.fingerOverrides,
+    viewLayer: app.viewLayer,
+    manualLayer: app.manualLayer
+  };
+}
+
+function restoreBoardState(snap){
+  if (!snap || !snap.board) return false;
+  app.board = snap.board;
+  app.layers = snap.layers;
+  app.fingerOverrides = snap.fingers || {};
+  app.viewLayer = snap.viewLayer || 0;
+  app.manualLayer = snap.manualLayer === undefined ? null : snap.manualLayer;
+  buildIndexes();
+  refreshLessons();
+  renderTabs();
+  renderKeyboard();
+  fitKeyboard();
+  updateTarget();
+  renderModeLabel();
+  renderLessons();
+  return true;
+}
+
+function hidTeardown(device){
+  var snap = hid.snapshot;
+  hidMarkClosed(device, 'the keyboard was disconnected');
+  if (device && hid.disconnect){
+    try { device.removeEventListener('disconnect', hid.disconnect); } catch(e){}
+  }
+  hid.disconnect = null;
+  hid.device = null;
+  hid.uid = null;
+  hid.name = null;
+  hid.connected = false;
+  if (snap) restoreBoardState(snap);
+  hid.snapshot = null;
+  updateHidUi();
+}
+
+function onKeyboardUnplugged(device){
+  if (!hid.connected || hid.device !== device) return;
+  var was = hid.name || 'keyboard';
+  try {
+    hidTeardown(device);
+    toast('Keyboard unplugged — restored ' + app.board.name + ' (was ' + was + ').', true);
+  } catch(e){
+    updateHidUi();
+    toast('Keyboard unplugged — reload the page to restore the previous board.', true);
+  }
+}
+
+function disconnectKeyboard(){
+  if (!hid.connected || !hid.device) return Promise.resolve({ status: 'idle' });
+  var device = hid.device;
+  var was = hid.name || 'keyboard';
+  var snap = hid.snapshot;
+  hidMarkClosed(device, 'disconnected');
+  if (hid.disconnect){
+    try { device.removeEventListener('disconnect', hid.disconnect); } catch(e){}
+  }
+  hid.disconnect = null;
+  hid.device = null;
+  hid.connected = false;
+  hid.busy = false;
+  return hidCloseQuietly(device).then(function(){
+    if (snap) restoreBoardState(snap);
+    else {
+      /* No in-memory snapshot (e.g. page restored): re-read the saved board. */
+      storedLayout = normalizeLayers(lsGet(LS.layout, null));
+      app.layers = storedLayout || normalizeLayers(DEFAULT_LAYOUT);
+      if (!loadStoredBoard()) resetBoard();
+    }
+    hid.uid = null;
+    hid.name = null;
+    hid.snapshot = null;
+    updateHidUi();
+    toast('Keyboard disconnected — restored ' + app.board.name + ' (was ' + was + ').');
+    return { status: 'disconnected' };
+  }).catch(function(err){
+    hid.uid = null;
+    hid.name = null;
+    hid.snapshot = null;
+    updateHidUi();
+    var message = String((err && err.message) || err);
+    toast('Keyboard disconnected, but the previous board could not be restored: ' + message, true);
+    return { status: 'error', message: message };
+  });
+}
+
+function updateHidUi(){
+  var btn = $('#btnHid');
+  if (btn){
+    if (hid.connected) btn.textContent = 'Disconnect';
+    else if (hid.busy) btn.textContent = 'Connecting…';
+    else btn.textContent = 'Connect keyboard';
+    btn.title = hid.connected
+      ? 'Connected: ' + (hid.name || 'keyboard') + ' · uid ' + (hid.uid || '-')
+      : (hidSupported() ? 'Connect a Vial keyboard over WebHID' : 'WebHID not available in this browser');
+  }
 }
 
 /* ---------------- uid-driven definition lookup ---------------- */
@@ -2278,27 +2831,35 @@ function loadBoardByUid(uid, opts){
 
 /* ---------------- lesson derivation from the board ---------------- */
 var LESSON_TEMPLATE = [
-  { t: 'Home row: F J',        g: 'letters' },
-  { t: '+ D K',                g: 'letters' },
-  { t: '+ S L',                g: 'letters' },
-  { t: '+ A ;',                g: 'letters' },
-  { t: '+ G H (inner reach)',  g: 'letters' },
-  { t: 'Top row: E I',         g: 'letters' },
-  { t: '+ R U',                g: 'letters' },
-  { t: '+ T Y',                g: 'letters' },
-  { t: '+ W O',                g: 'letters' },
-  { t: '+ Q P',                g: 'letters' },
-  { t: 'Bottom: V M',          g: 'letters' },
-  { t: '+ C ,',                g: 'letters' },
-  { t: '+ X .',                g: 'letters' },
-  { t: '+ Z /',                g: 'letters' },
-  { t: '+ B N',                g: 'letters' },
-  { t: 'Capitals with Shift',  g: 'caps' },
-  { t: 'Numbers',              g: 'numbers' },
-  { t: 'Punctuation & symbols',g: 'symbols' },
-  { t: 'Common words',         g: 'words' },
-  { t: 'Sentences',            g: 'sentences' }
+  { g: 'letters', row: 'home' },
+  { g: 'letters', row: 'home' },
+  { g: 'letters', row: 'home' },
+  { g: 'letters', row: 'home' },
+  { g: 'letters', row: 'home' },
+  { g: 'words',   title: 'Words: home row', scope: 'home' },
+  { g: 'letters', row: 'top' },
+  { g: 'letters', row: 'top' },
+  { g: 'letters', row: 'top' },
+  { g: 'letters', row: 'top' },
+  { g: 'letters', row: 'top' },
+  { g: 'words',   title: 'Words: home row + top row', scope: 'homeTop' },
+  { g: 'letters', row: 'bottom' },
+  { g: 'letters', row: 'bottom' },
+  { g: 'letters', row: 'bottom' },
+  { g: 'letters', row: 'bottom' },
+  { g: 'letters', row: 'bottom' },
+  { g: 'words',   title: 'Words: all letters', scope: 'all', longWords: true },
+  { g: 'caps',    title: 'Capitals with Shift' },
+  { g: 'numbers', title: 'Numbers' },
+  { g: 'symbols', title: 'Punctuation & symbols' },
+  { g: 'words',   title: 'Common words', scope: 'common' },
+  { g: 'sentences', title: 'Sentences' }
 ];
+var LESSON_STAGE = {
+  letters: 'New keys',
+  words: 'Words',
+  caps: 'Applied', numbers: 'Applied', symbols: 'Applied', sentences: 'Applied'
+};
 var QWERTY_LETTER_SETS = ['fj','dk','sl','a;','gh','ei','ru','ty','wo','qp','vm','c,','x.','z/','bn'];
 
 function charOnKey(mr, mc){
@@ -2366,41 +2927,81 @@ function rowPairs(row){
   return out;
 }
 
-function deriveLessonChars(){
+function rowPairOrder(n, role){
+  if (n < 2) return n ? [0] : [];
+  /* Top row on a 5-pair board starts with the middle pair, then both
+     index pairs, ring and pinky; the home and bottom rows put the index
+     home pair first and the index reach pair last. */
+  if (role === 'top' && n === 5) return [2, 1, 0, 3, 4];
+  var order = [];
+  for (var i = 1; i < n; i++) order.push(i);
+  order.push(0);
+  return order;
+}
+
+function deriveLessonPairs(){
   var rows = boardAlphaRows();
   if (!rows.length) return QWERTY_LETTER_SETS.slice();
 
   var pairs = rows.map(rowPairs);
-  var home = pairs[Math.floor((pairs.length - 1) / 2)] || [];
-  var above = pairs[Math.floor((pairs.length - 1) / 2) - 1] || [];
-  var below = pairs[Math.floor((pairs.length - 1) / 2) + 1] || [];
-
-  /* QWERTY-shaped board -> keep the hand-tuned curriculum exactly */
-  var flat = home.concat(above, below).join('|');
-  var qwertyFlat = 'gh|fj|dk|sl|a;|ty|ru|ei|wo|qp|bn|vm|c,|x.|z/';
-  if (flat === qwertyFlat) return QWERTY_LETTER_SETS.slice();
-
-  /* generic: home row from the index outward, then top, then bottom */
+  var homeIdx = Math.floor((pairs.length - 1) / 2);
+  var sequence = [];
+  if (homeIdx >= 0 && pairs[homeIdx]){
+    sequence.push({ row: pairs[homeIdx], role: 'home' });
+    for (var hi = homeIdx - 1; hi >= 0; hi--) sequence.push({ row: pairs[hi], role: 'top' });
+    for (var bi = homeIdx + 1; bi < pairs.length; bi++) sequence.push({ row: pairs[bi], role: 'bottom' });
+  }
   var out = [];
-  var push = function(p){
-    if (p && out.indexOf(p) === -1) out.push(p);
-  };
-  home.forEach(push);
-  above.forEach(push);
-  below.forEach(push);
-  if (!out.length) return QWERTY_LETTER_SETS.slice();
-  return out;
+
+  sequence.forEach(function(entry){
+    rowPairOrder(entry.row.length, entry.role).forEach(function(pi){
+      if (entry.row[pi]) out.push(entry.row[pi]);
+    });
+  });
+
+  /* Drop characters already introduced by an earlier pair (some boards
+     repeat or mirror a key). A pair may shrink to a single key. */
+  var seen = Object.create(null), clean = [];
+  out.forEach(function(pair){
+    var s = '';
+    for (var i = 0; i < pair.length; i++){
+      var ch = pair.charAt(i);
+      if (ch && !seen[ch]){ seen[ch] = true; s += ch; }
+    }
+    if (s) clean.push(s);
+  });
+  if (!clean.length) return QWERTY_LETTER_SETS.slice();
+  return clean;
+}
+
+/* Characters the base layer can type, shifted forms included. */
+function producibleBaseChars(){
+  var set = Object.create(null);
+  if (!app.board || !app.layers) return set;
+  for (var r = 0; r < app.board.rows; r++){
+    for (var c = 0; c < app.board.cols; c++){
+      var raw = effectiveRaw(0, r, c);
+      if (!raw) continue;
+      var cs = keyChars(raw);
+      for (var i = 0; i < cs.length; i++){
+        var ch = cs[i].ch;
+        if (ch && /^[\x21-\x7e]$/.test(ch)) set[ch] = true;
+      }
+    }
+  }
+  return set;
 }
 
 /* ---------------- misc board UI helpers ---------------- */
 function boardMetaText(){
   var b = app.board;
-  var src = b.source === 'default' ? 'default' :
-            b.source === 'cache' ? 'board (cached)' :
-            b.source === 'last' ? 'last known' :
-            b.source === 'manual' ? 'manual' : 'board';
+  var src = b.connected ? 'connected'
+          : b.source === 'default' ? 'default'
+          : b.source === 'cache' ? 'board (cached)'
+          : b.source === 'last' ? 'last known'
+          : b.source === 'manual' ? 'manual' : 'board';
   return b.name + ' · ' + b.rows + '×' + b.cols + ' matrix · uid ' + (b.uid || '—') +
-    ' · geometry: ' + src;
+    ' · ' + src;
 }
 
 /* live keymap over HID ends here */
@@ -2669,8 +3270,7 @@ function renderTabs(){
 
   var total = app.layers.length;
   $('#kbMeta').textContent = boardMetaText() + ' · ' + total + ' layer' + (total === 1 ? '' : 's') + ' loaded';
-  var hidBtn = $('#btnHid');
-  if (hidBtn && !hidSupported()) hidBtn.title = 'WebHID not available in this browser';
+  updateHidUi();
   $('#layoutInfo').textContent = 'layout: ' + (storedLayout ? 'imported (.vil)' : 'default');
 }
 
@@ -3177,20 +3777,155 @@ var WORDS = (
   'jump quick brown fox lazy dog fast slow left right hands finger green blue black stone ' +
   'bread cloud grass river ocean train plane learn study read book page letter enter shift ' +
   'chair window morning evening today tomorrow number pencil large quiet brave bright fresh ' +
-  'keyboard typing speed steady rhythm focus calm'
+  'keyboard typing speed steady rhythm focus calm ' +
+  'salad flask glad gash sash lash slag gala shall dash hash flash flag'
 ).split(/\s+/).filter(Boolean);
 
-var LESSONS = LESSON_TEMPLATE.map(function(l){ return { t: l.t, g: l.g, c: '' }; });
+var LESSONS = LESSON_TEMPLATE.map(function(l){
+  return {
+    t: l.title || '', g: l.g, row: l.row, title: l.title,
+    scope: l.scope, longWords: !!l.longWords,
+    c: '', newChars: '', letters: '', skip: false, skipReason: ''
+  };
+});
+
+function pairTitle(pair){
+  return String(pair || '').toUpperCase().split('').join(' ');
+}
+
+function nextLessonIndex(from, includeSelf){
+  var start = includeSelf ? from : from + 1;
+  for (var i = start; i < LESSONS.length; i++) if (!LESSONS[i].skip) return i;
+  return -1;
+}
+function prevLessonIndex(from){
+  for (var i = from; i >= 0; i--) if (!LESSONS[i].skip) return i;
+  return -1;
+}
+function lessonTotal(){
+  var n = 0;
+  LESSONS.forEach(function(l){ if (!l.skip) n++; });
+  return n;
+}
+
+var SYMBOL_UNSHIFTED = ",.;'-/[]=`";
+var SYMBOL_SHIFTED = '<>:"_?{}+~';
+
+function cleanedBase(s){
+  var out = '';
+  for (var i = 0; i < s.length; i++){
+    var ch = s.charAt(i);
+    if (ch && out.indexOf(ch) === -1) out += ch;
+  }
+  return out;
+}
 
 function refreshLessons(){
-  var sets = deriveLessonChars();
-  var last = 'fj';
+  var pairs = deriveLessonPairs();
+  var producible = producibleBaseChars();
+  var learned = '';
+  var pairIdx = 0;
+  var prevPair = '';
+  var prevRow = null;
+
   LESSONS.forEach(function(l, i){
-    if (l.g !== 'letters') return;
-    var s = sets[i] || sets[sets.length - 1] || last;
-    l.c = s || last;
-    if (l.c) last = l.c;
+    l.skip = false;
+    l.skipReason = '';
+    l.newChars = '';
+    l.t = l.title || '';
+    if (typeof l.lastDrill !== 'string') l.lastDrill = '';
+
+    if (l.g === 'letters'){
+      var pair = pairs[pairIdx++] || '';
+      var add = '';
+      for (var pi = 0; pi < pair.length; pi++){
+        var ch = pair.charAt(pi);
+        if (ch && learned.indexOf(ch) === -1 && add.indexOf(ch) === -1) add += ch;
+      }
+      l.newChars = add;
+      learned += add;
+      var firstOfRow = l.row !== prevRow;
+      prevRow = l.row;
+
+      if (!add){
+        l.skip = true;
+        l.skipReason = 'not on board';
+        l.t = 'New key (not on board)';
+      } else if (i === 0){
+        l.t = pairTitle(add);
+      } else if (i === 1){
+        l.t = pairTitle(prevPair) + ' + ' + pairTitle(add);
+      } else if (firstOfRow){
+        l.t = (l.row === 'top' ? 'Top row: ' : l.row === 'bottom' ? 'Bottom: ' : 'Home row: ') + pairTitle(add);
+      } else {
+        l.t = '+ ' + pairTitle(add);
+      }
+      prevPair = add || prevPair;
+    }
+
+    l.c = learned;
+    l.letters = learned.replace(/[^a-z]/g, '');
+
+    if (l.g === 'words'){
+      l.allowed = learned;
+      if (!l.letters){
+        l.skip = true;
+        l.skipReason = 'no letters';
+        l.t += ' (not on board)';
+      }
+    } else if (l.g === 'caps'){
+      var caps = '';
+      for (var ci = 0; ci < l.letters.length; ci++){
+        var up = l.letters.charAt(ci).toUpperCase();
+        if (producible[up]) caps += up;
+      }
+      l.caps = caps;
+      if (!caps){
+        l.skip = true;
+        l.skipReason = 'no shifted letters';
+        l.t += ' (not on base layer)';
+      }
+    } else if (l.g === 'numbers'){
+      var digits = '';
+      for (var di = 0; di < 10; di++) if (producible[String(di)]) digits += String(di);
+      l.digits = digits;
+      if (!digits){
+        l.skip = true;
+        l.skipReason = 'no number row';
+        l.t += ' (not on base layer)';
+      }
+    } else if (l.g === 'symbols'){
+      var syms = '';
+      for (var si = 0; si < SYMBOL_UNSHIFTED.length; si++){
+        var sc = SYMBOL_UNSHIFTED.charAt(si);
+        if (producible[sc]) syms += sc;
+      }
+      for (var sh = 0; sh < SYMBOL_SHIFTED.length; sh++){
+        var shc = SYMBOL_SHIFTED.charAt(sh);
+        if (producible[shc]) syms += shc;
+      }
+      l.symbols = syms;
+      if (!syms){
+        l.skip = true;
+        l.skipReason = 'no symbols';
+        l.t += ' (not on base layer)';
+      }
+    } else if (l.g === 'sentences'){
+      l.symbols = learned.replace(/[a-z]/g, '');
+      if (!l.letters){
+        l.skip = true;
+        l.skipReason = 'no letters';
+        l.t += ' (not on board)';
+      }
+    }
   });
+
+  /* Keep the selection on a lesson that can actually run. */
+  if (LESSONS[app.lessonIdx] && LESSONS[app.lessonIdx].skip){
+    var fix = nextLessonIndex(app.lessonIdx, true);
+    if (fix === -1) fix = prevLessonIndex(app.lessonIdx);
+    if (fix !== -1) app.lessonIdx = fix;
+  }
 }
 
 var SENTENCES = [
@@ -3372,66 +4107,236 @@ function genDrill(charSet, target){
   return toks.join(' ');
 }
 
-function genCaps(){
-  var letters = 'abcdefghijklmnopqrstuvwxyz';
-  var toks = [], len = 0;
-  while (len < 48){
-    var n = 3 + rand(3), s = '';
-    for (var i = 0; i < n; i++) s += letters[rand(26)];
+/* ---- lesson drills ---- */
+function lessonLetters(s){
+  return String(s || '').replace(/[^a-z]/g, '').split('');
+}
+
+/* Cumulative letter lesson: the new key repeats in pairs/triples for about
+   half the drill, and the rest is a review mix of everything learned. */
+function genLessonDrill(newChars, allowed){
+  newChars = cleanedBase(newChars || '');
+  allowed = cleanedBase(allowed || newChars);
+  if (!newChars) newChars = allowed || 'fj';
+  if (!allowed) allowed = newChars;
+
+  var newKeys = newChars.split('');
+  var reviewChars = allowed.split('').filter(function(c){ return c && c !== ' '; });
+  var letters = lessonLetters(allowed);
+  if (!letters.length) letters = lessonLetters(newChars);
+  if (!letters.length) letters = ['f', 'j'];
+  var fillerPool = reviewChars.length ? reviewChars : letters;
+
+  /* Cover every learned key once, in short 2-3 character groups. */
+  var shuffled = shuffle(reviewChars.slice());
+  var review = [], pos = 0;
+  while (pos < shuffled.length){
+    var left = shuffled.length - pos;
+    var g = Math.min(left, 2 + rand(2));
+    if (left - g === 1) g = 5 - g;
+    review.push(shuffled.slice(pos, pos + g).join(''));
+    pos += g;
+  }
+  var reviewLen = review.join(' ').length;
+
+  var newToks = [];
+  newKeys.forEach(function(k){
+    newToks.push(k + k);
+    newToks.push(k + k + k);
+  });
+  var nlen = newToks.join(' ').length;
+  var targetNew = clamp(60 - reviewLen, 20, 30);
+  var guard = 0;
+  while (nlen < targetNew && guard++ < 100){
+    var tok;
+    if (newKeys.length >= 2){
+      var a = newKeys[0], b = newKeys[1];
+      tok = pick([a + a, a + b, b + a, b + b, a + a + a, b + b + b]);
+    } else {
+      tok = newKeys[0] + newKeys[0];
+    }
+    newToks.push(tok);
+    nlen += tok.length + 1;
+  }
+
+  var toks = newToks.concat(review);
+  var text = toks.join(' ');
+  guard = 0;
+  while (text.length < 56 && guard++ < 20){
+    var m = 2 + rand(2), s = '';
+    for (var q = 0; q < m; q++) s += pick(fillerPool);
+    toks.push(s);
+    text = toks.join(' ');
+  }
+  return shuffle(toks).join(' ');
+}
+
+function pseudoWord(letters){
+  var chars = lessonLetters(letters);
+  if (!chars.length) chars = 'etaoin'.split('');
+  var vowels = chars.filter(function(c){ return 'aeiou'.indexOf(c) !== -1; });
+  var cons = chars.filter(function(c){ return 'aeiou'.indexOf(c) === -1; });
+  if (!vowels.length) vowels = chars.slice();
+  if (!cons.length) cons = chars.slice();
+  var n = 3 + rand(3), s = '';
+  for (var i = 0; i < n; i++) s += (i % 2 === 0) ? pick(cons) : pick(vowels);
+  if (/^[aeiou]/.test(s)) s = pick(cons) + s;
+  return s.slice(0, 4);
+}
+
+function genWordsLesson(L){
+  var allowed = Object.create(null);
+  var letters = L.letters || '';
+  for (var i = 0; i < letters.length; i++) allowed[letters.charAt(i)] = true;
+
+  var pool = L.scope === 'common' ? WORDS.slice(0, 100) : WORDS;
+  var seen = Object.create(null), real = [];
+  pool.forEach(function(w){
+    if (!/^[a-z]+$/.test(w) || seen[w]) return;
+    if (L.longWords && w.length < 4) return;
+    for (var j = 0; j < w.length; j++) if (!allowed[w.charAt(j)]) return;
+    seen[w] = true;
+    real.push(w);
+  });
+
+  var want = 12, cmpLen = function(a, b){ return a.length - b.length; };
+  if (L.scope === 'home'){
+    real = shuffle(real).sort(cmpLen);
+  } else {
+    shuffle(real);
+    if (L.longWords) real.sort(function(a, b){ return b.length - a.length; });
+  }
+  real = real.slice(0, want);
+
+  var practice = false;
+  while (real.length < want){
+    real.push(pseudoWord(letters));
+    practice = true;
+  }
+  if (L.scope === 'home') real = shuffle(real).sort(cmpLen);
+  L.practice = practice;
+  return real.join(' ');
+}
+
+function genCapsLesson(L){
+  var caps = (L.caps || '').split('');
+  var lower = lessonLetters(L.letters);
+  if (!caps.length) return genLessonDrill('fj', 'fj');
+  if (!lower.length) lower = caps.map(function(c){ return c.toLowerCase(); });
+
+  var toks = [], len = 0, guard = 0;
+  while (len < 50 && guard++ < 100){
+    var n = 2 + rand(3), s = '';
+    for (var i = 0; i < n; i++) s += pick(caps);
     var r = Math.random();
-    if (r < 0.55) s = s.charAt(0).toUpperCase() + s.slice(1);
-    else if (r < 0.7) s = s.toUpperCase();
+    if (r < 0.5) s = s.charAt(0) + s.slice(1).toLowerCase();
+    else if (r < 0.75 && lower.length) s = s.toLowerCase();
     toks.push(s);
     len += s.length + 1;
   }
-  var shortWords = WORDS.filter(function(w){ return w.length <= 6; });
-  for (var j = 0; j < 3; j++){
-    var w = pick(shortWords);
-    toks.splice(1 + rand(toks.length), 0, w.charAt(0).toUpperCase() + w.slice(1));
+  for (var w = 0; w < 3; w++){
+    var word = pick(WORDS);
+    if (!word) break;
+    var title = word.charAt(0).toUpperCase() + word.slice(1);
+    var ok = true;
+    for (var c = 0; c < title.length; c++){
+      if (caps.indexOf(title.charAt(c)) === -1 && lower.indexOf(title.charAt(c)) === -1) ok = false;
+    }
+    if (ok) toks.splice(1 + rand(toks.length), 0, title);
   }
   return toks.join(' ');
 }
 
-function genNumbers(){
+function genNumbersLesson(L){
+  var digits = (L.digits || '0123456789').split('');
   var toks = [], len = 0;
-  while (len < 46){
-    var n = 1 + rand(4), s = '';
-    for (var i = 0; i < n; i++) s += String(rand(10));
+  digits.forEach(function(d){ toks.push(d); len += 2; });
+  var guard = 0;
+  while (len < 46 && guard++ < 100){
+    var n = 2 + rand(2), s = '';
+    for (var i = 0; i < n; i++) s += pick(digits);
     toks.push(s);
     len += s.length + 1;
   }
   return toks.join(' ');
 }
 
-function genSymbols(){
-  var toks = [], len = 0, used = {};
-  while (len < 50){
-    var t = pick(SYM_TOKENS);
-    toks.push(t);
-    used[t] = true;
-    len += t.length + 1;
+function genSymbolsLesson(L){
+  var syms = String(L.symbols || '').split('');
+  var letters = lessonLetters(L.letters);
+  if (!syms.length) return genLessonDrill('fj', 'fj');
+  var toks = [], len = 0;
+  syms.forEach(function(s){
+    toks.push((letters.length ? pick(letters) : pick(syms)) + s);
+    len += 3;
+  });
+  var guard = 0;
+  while (len < 50 && guard++ < 100){
+    var n = 2 + rand(2), s = '';
+    if (letters.length){
+      for (var i = 0; i < n; i++) s += pick(letters);
+      toks.push(s + pick(syms));
+      len += s.length + 2;
+    } else {
+      for (var j = 0; j < n; j++) s += pick(syms);
+      toks.push(s);
+      len += s.length + 1;
+    }
   }
-  if (!used['(ok)'] && Math.random() < 0.5) toks.splice(rand(toks.length), 0, '(ok)');
   return toks.join(' ');
 }
 
-function genSentences(){
-  var n = Math.random() < 0.55 ? 2 : 1;
-  var out = [];
-  for (var i = 0; i < n; i++) out.push(pick(SENTENCES));
+function genSentenceLesson(L){
+  var letters = lessonLetters(L.letters);
+  var puncts = String(L.symbols || '').split('').filter(function(c){ return '.,;'.indexOf(c) !== -1; });
+  var allowed = Object.create(null);
+  letters.forEach(function(c){ allowed[c] = true; });
+
+  var pool = WORDS.filter(function(w){
+    if (!/^[a-z]+$/.test(w) || w.length < 2 || w.length > 8) return false;
+    for (var i = 0; i < w.length; i++) if (!allowed[w.charAt(i)]) return false;
+    return true;
+  });
+
+  var out = [], guard = 0;
+  var want = 2 + rand(2);
+  while (out.length < want && guard++ < 60){
+    var wc = 3 + rand(4), words = [];
+    for (var i = 0; i < wc; i++){
+      words.push(pool.length ? pick(pool) : pseudoWord(letters.join('')));
+    }
+    var s = words.join(' ');
+    if (s.charAt(0)) s = s.charAt(0).toUpperCase() + s.slice(1);
+    if (puncts.indexOf('.') !== -1) s += '.';
+    if (s.length <= 50 && out.indexOf(s) === -1) out.push(s);
+  }
   return out.join(' ');
+}
+
+function generateLessonText(L){
+  switch (L.g){
+    case 'caps':      return genCapsLesson(L);
+    case 'numbers':   return L.digits ? genNumbersLesson(L) : genLessonDrill(L.newChars, L.c);
+    case 'symbols':   return L.symbols ? genSymbolsLesson(L) : genLessonDrill(L.newChars, L.c);
+    case 'words':     return genWordsLesson(L);
+    case 'sentences': return genSentenceLesson(L);
+    default:          return genLessonDrill(L.newChars, L.c);
+  }
 }
 
 function genLesson(i){
   var L = LESSONS[clamp(i, 0, LESSONS.length - 1)];
-  switch (L.g){
-    case 'caps':      return genCaps();
-    case 'numbers':   return genNumbers();
-    case 'symbols':   return genSymbols();
-    case 'words':     return genWordRun(12);
-    case 'sentences': return genSentences();
-    default:          return genDrill(L.c, 50);
+  if (L.skip){
+    var alt = nextLessonIndex(clamp(i, 0, LESSONS.length - 1), true);
+    if (alt === -1) alt = prevLessonIndex(clamp(i, 0, LESSONS.length - 1));
+    if (alt !== -1) L = LESSONS[alt];
   }
+  var text = generateLessonText(L);
+  for (var t = 0; t < 10 && L.lastDrill && text === L.lastDrill; t++){
+    text = generateLessonText(L);
+  }
+  L.lastDrill = text;
+  return text;
 }
 
 /* code-like strings that exercise layer-2 symbols */
@@ -4200,7 +5105,7 @@ function showResults(stats){
   }
 
   var nextLabel = 'Retry';
-  if (app.mode === 'lesson' && app.lessonIdx < LESSONS.length - 1) nextLabel = 'Next lesson';
+  if (app.mode === 'lesson' && nextLessonIndex(app.lessonIdx, false) !== -1) nextLabel = 'Next lesson';
   else if (app.mode === 'texts') nextLabel = 'Next text';
   else if (app.mode === 'ngram' || app.mode === 'words' || app.mode === 'time' || app.mode === 'weak') nextLabel = 'New set';
 
@@ -4235,14 +5140,17 @@ function hideModal(){
 
 function nextRun(){
   hideModal();
-  if (app.mode === 'lesson' && app.lessonIdx < LESSONS.length - 1){
-    app.lessonIdx++;
-    app.mode = 'lesson';
-    renderModes();
-    renderLessons();
-    renderModeOptions();
-    startRun({ mode: 'lesson' });
-    return;
+  if (app.mode === 'lesson'){
+    var nextIdx = nextLessonIndex(app.lessonIdx, false);
+    if (nextIdx !== -1){
+      app.lessonIdx = nextIdx;
+      app.mode = 'lesson';
+      renderModes();
+      renderLessons();
+      renderModeOptions();
+      startRun({ mode: 'lesson' });
+      return;
+    }
   }
   if (app.mode === 'texts'){
     app.textIdx = pickTextIndex(app.textLen);
@@ -4573,19 +5481,31 @@ function renderLessons(){
   var box = $('#lessonList');
   if (!box) return;
   box.innerHTML = '';
-  var done = 0;
+  var done = 0, stage = '';
 
   LESSONS.forEach(function(l, i){
     var best = app.lessonBests[i];
-    if (best && best.done) done++;
+    if (best && best.done && !l.skip) done++;
+
+    var st = LESSON_STAGE[l.g] || 'New keys';
+    if (st !== stage){
+      stage = st;
+      var h = document.createElement('div');
+      h.className = 'lgroup';
+      h.textContent = st;
+      box.appendChild(h);
+    }
 
     var b = document.createElement('button');
-    b.className = 'lesson' + (app.mode === 'lesson' && i === app.lessonIdx ? ' on' : '');
+    b.className = 'lesson' + (app.mode === 'lesson' && i === app.lessonIdx ? ' on' : '') +
+      (l.skip ? ' skip' : '');
     b.innerHTML =
-      '<span class="star' + ((best && best.done) ? ' on' : '') + '">' + ((best && best.done) ? '★' : '☆') + '</span>' +
+      '<span class="star' + ((best && best.done) ? ' on' : '') + '">' +
+        (l.skip ? '–' : ((best && best.done) ? '★' : '☆')) + '</span>' +
       '<span class="lname">' + (i + 1) + '. ' + esc(l.t) + '</span>' +
       '<span class="lbest">' + (best && best.wpm ? Math.round(best.wpm) + 'w' : '') + '</span>';
     b.onclick = function(){
+      if (l.skip){ toast(l.t + ' — this board cannot type it.', true); return; }
       app.mode = 'lesson';
       app.lessonIdx = i;
       renderModes();
@@ -4596,7 +5516,7 @@ function renderLessons(){
     box.appendChild(b);
   });
 
-  $('#lessonProgress').textContent = done + '/' + LESSONS.length;
+  $('#lessonProgress').textContent = done + '/' + lessonTotal();
 }
 
 function renderModeOptions(){
@@ -5355,7 +6275,10 @@ function bindUI(){
     toast(app.editFingers ? 'Click keys to cycle their finger.' : 'Finger editing off.');
     renderLegend();
   };
-  $('#btnHid').onclick = function(){ connectKeyboard(); };
+  $('#btnHid').onclick = function(){
+    if (hid.connected) disconnectKeyboard();
+    else connectKeyboard();
+  };
   $('#btnBoards').onclick = openBoardPanel;
   $('#btnClearCache').onclick = function(){
     var n = clearDefinitionCache();
@@ -5458,7 +6381,10 @@ function openBoardPanel(note){
     '<p class="small dim" style="margin:10px 0 0">Export a .vil from <a href="https://vial.rocks" target="_blank" rel="noopener">vial.rocks</a>.</p>';
 
   $('#boardClose').onclick = closeBoardPanel;
-  $('#boardHid').onclick = function(){ connectKeyboard(); };
+  $('#boardHid').onclick = function(){
+    if (hid.connected) disconnectKeyboard();
+    else connectKeyboard();
+  };
   $('#boardReset').onclick = function(){
     resetBoard();
     refreshLessons();
@@ -5471,20 +6397,47 @@ function openBoardPanel(note){
     btn.onclick = function(){
       var entry = null;
       KNOWN_BOARDS.forEach(function(e){ if (e.path === btn.getAttribute('data-board')) entry = e; });
-      if (!entry) return;
-      fetchDefinition(entry).then(function(def){
-        cacheDefinition(entry.uid || entry.path, def);
-        applyDefinition(def, { name: entry.name, uid: entry.uid || null, source: 'board' });
-        persistBoard();
-        renderLessons();
-        closeBoardPanel();
-        toast('Loaded ' + entry.name + ' geometry.');
-      }).catch(function(){
-        toast('Could not fetch ' + entry.name + ' — check the path or import its vial.json.', true);
-      });
+      if (entry) loadKnownBoard(entry, btn);
     };
   });
   $('#boardModal').classList.add('show');
+}
+
+/* Pick a known board without connecting (cached -> built-in -> fetched). */
+function loadKnownBoard(entry, btn){
+  if (!entry) return Promise.resolve({ status: 'missing' });
+  var key = entry.uid || entry.path;
+  function apply(def, source, status){
+    applyDefinition(def, { name: entry.name, uid: entry.uid || null, source: source });
+    persistBoard();
+    renderLessons();
+    renderTabs();
+    closeBoardPanel();
+    toast('Loaded ' + entry.name + ' geometry' + (status === 'cache' ? ' (cached)' : '') + '.');
+    return { status: status, board: app.board };
+  }
+  function pick(){
+    var cached = readCachedDefinition(key);
+    if (cached) return Promise.resolve().then(function(){ return apply(cached, 'cache', 'cache'); });
+    var builtin = entry.uid ? BUILTIN_DEFS[entry.uid] : null;
+    if (builtin) return Promise.resolve().then(function(){ return apply(builtin, 'board', 'builtin'); });
+    return fetchDefinition(entry).then(function(def){
+      cacheDefinition(key, def);
+      return apply(def, 'board', 'fetched');
+    }).catch(function(err){
+      toast('Could not fetch ' + entry.name + ' — import its .vil export or vial.json instead.', true);
+      return { status: 'failed', message: String(err && err.message || err) };
+    });
+  }
+  var start = hid.connected ? disconnectKeyboard() : Promise.resolve();
+  return start.then(pick).then(function(res){
+    if (btn) btn.disabled = false;
+    return res;
+  }, function(err){
+    if (btn) btn.disabled = false;
+    toast('Could not load ' + entry.name + '.', true);
+    return { status: 'failed', message: String(err && err.message || err) };
+  });
 }
 function closeBoardPanel(){ $('#boardModal').classList.remove('show'); }
 
