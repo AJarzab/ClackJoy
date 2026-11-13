@@ -1,0 +1,13 @@
+# OS / editor junk
+Thumbs.db
+ehthumbs.db
+.DS_Store
+*.swp
+*.swo
+
+# Editors
+.vscode/
+.idea/
+
+# Dependencies
+node_modules/

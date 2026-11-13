@@ -1,0 +1,1 @@
+Save a screenshot of the trainer as docs/screenshot.png before publishing. The README references it.
