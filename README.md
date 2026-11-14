@@ -22,7 +22,8 @@ Most typing sites assume a stock keyboard. If you have built a split board and r
 | --- | --- |
 | **Practice** | 23 cumulative lessons generated from the loaded board's own home row — one new key at a time, every earlier key kept in play, word lessons after each stage, then capitals, numbers, punctuation and sentences; Words (10/25/50); Time (30/60s); 40 texts; N-grams, including *weakest n-grams* ranked by your tracked latency; Layer drills for symbols, navigation, F-keys and shortcuts; Weak keys; Custom text. |
 | **Keyboard view** | True geometry for any Vial board — KLE parsing, column stagger, rotated thumb keys, variable-width keys. Finger colouring with click-to-edit overrides, layer tabs with pin-to-view, next-key and next-next-key highlights, error or speed heatmap, blind mode with a continuous accuracy-based fade, soft focus. |
-| **Stats** | WPM and accuracy history (last 500 runs), per-finger speed and error rate, slowest keys and bigrams, daily goal, day streak and a 20-week activity calendar. Export everything as JSON, or reset it. |
+| **Combo** | Consecutive-correct-keystroke counter with a per-run best and an all-time best. Pressed keys catch fire from ×25 and blaze from ×100, with milestone sparks at 10/25/50/100 — switchable between glow only, full fire, or off. |
+| **Stats** | WPM and accuracy history (last 500 runs), best combo per run, per-finger speed and error rate, slowest keys and bigrams, daily goal, day streak and a 20-week activity calendar. Export everything as JSON, or reset it. |
 | **Sound** | Synthesised key clicks, selectable error sounds (thud, buzzer, tick, blip, bell) and correct sounds (click, soft, pop), each with a preview button. Error sounds are rate-limited so a mistake is one sound, not a burst. |
 | **Themes** | Light, dark, or follow the system. |
 

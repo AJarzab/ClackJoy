@@ -34,7 +34,15 @@
   --muted:#5f7288;
 
   --accent:#5eead4;
-  --accent-2:#2dd4bf;
+  --accent-deep:#2dd4bf;
+  --accent-2:#ff9a3c;
+  --accent-2-rgb:255,154,60;
+  --accent-2-soft:rgba(255,154,60,.14);
+  --accent-2-ink:#2a1200;
+  --focus-2:rgba(255,154,60,.35);
+  --cta-a:#ffb266;
+  --cta-b:#f0822f;
+  --cta-ink:#2a1200;
   --accent-ink:#03231e;
   --accent-rgb:94,234,212;
   --accent-soft:rgba(94,234,212,.14);
@@ -101,7 +109,7 @@
   --f-index:120,170,255;
   --f-thumb:190,150,255;
   --speed-cold:120,220,255;
-  --speed-hot:248,113,113;
+  --speed-hot:255,154,60;
 
   --radius:14px;
 }
@@ -130,7 +138,15 @@
   --muted:#77879a;
 
   --accent:#0f766e;
-  --accent-2:#0b5f59;
+  --accent-deep:#0b5f59;
+  --accent-2:#c2410c;
+  --accent-2-rgb:194,65,12;
+  --accent-2-soft:rgba(194,65,12,.08);
+  --accent-2-ink:#ffffff;
+  --focus-2:rgba(194,65,12,.32);
+  --cta-a:#ffb266;
+  --cta-b:#f0822f;
+  --cta-ink:#2a1200;
   --accent-ink:#ffffff;
   --accent-rgb:15,118,110;
   --accent-soft:rgba(15,118,110,.1);
@@ -197,7 +213,7 @@
   --f-index:30,86,180;
   --f-thumb:112,64,190;
   --speed-cold:30,86,180;
-  --speed-hot:192,57,43;
+  --speed-hot:194,65,12;
 }
 
 @media (prefers-color-scheme: light){
@@ -221,7 +237,15 @@
     --dim:#5a6b7d;
     --muted:#77879a;
     --accent:#0f766e;
-    --accent-2:#0b5f59;
+    --accent-deep:#0b5f59;
+    --accent-2:#c2410c;
+    --accent-2-rgb:194,65,12;
+    --accent-2-soft:rgba(194,65,12,.08);
+    --accent-2-ink:#ffffff;
+    --focus-2:rgba(194,65,12,.32);
+    --cta-a:#ffb266;
+    --cta-b:#f0822f;
+    --cta-ink:#2a1200;
     --accent-ink:#ffffff;
     --accent-rgb:15,118,110;
     --accent-soft:rgba(15,118,110,.1);
@@ -280,7 +304,7 @@
     --f-index:30,86,180;
     --f-thumb:112,64,190;
     --speed-cold:30,86,180;
-    --speed-hot:192,57,43;
+    --speed-hot:194,65,12;
   }
 }
 /* ============================================================
@@ -321,6 +345,10 @@ header{
 }
 .brand h1{font-size:19px;letter-spacing:.01em}
 .brand h1 span{color:var(--dim);font-weight:400}
+.brand-dot{
+  display:inline-block;width:6px;height:6px;border-radius:50%;margin-left:5px;
+  background:var(--accent-2);vertical-align:2px;
+}
 .brand p{margin:3px 0 0;font-size:12px;color:var(--dim);letter-spacing:.03em}
 .actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .btn{
@@ -331,9 +359,10 @@ header{
 .btn:hover{background:var(--btn-hover);border-color:var(--line-3);color:var(--text)}
 .btn:active{transform:translateY(1px)}
 .btn.primary{
-  background:linear-gradient(180deg,var(--accent),var(--accent-2));
-  border-color:var(--accent);color:var(--accent-ink);font-weight:700;
+  background:linear-gradient(180deg,var(--cta-a),var(--cta-b));
+  border-color:var(--cta-b);color:var(--cta-ink);font-weight:700;
 }
+.btn.primary:focus-visible{box-shadow:0 0 0 3px var(--focus-2)}
 .btn.ghost{background:transparent}
 .btn.sm{padding:5px 9px;font-size:12px;border-radius:8px}
 .btn.on{border-color:rgba(var(--accent-rgb),.55);background:var(--accent-soft);color:var(--accent)}
@@ -359,13 +388,19 @@ html[data-theme="light"] .ico-sun{display:none}
 .daily svg{display:block;transform:rotate(-90deg)}
 .daily .ringbg{fill:none;stroke:var(--ring-bg);stroke-width:4}
 .daily .ringfg{fill:none;stroke:var(--accent);stroke-width:4;stroke-linecap:round;
-  transition:stroke-dashoffset .5s ease}
+  transition:stroke-dashoffset .5s ease,stroke .2s}
+.daily.partial .ringfg{stroke:var(--warn)}
+.daily.met .ringfg{stroke:var(--accent-2)}
 .dailytext{display:flex;flex-direction:column;line-height:1.1}
 .dailytext b{font-size:15px;font-variant-numeric:tabular-nums}
 .dailytext span{font-size:10px;color:var(--dim);letter-spacing:.06em}
 .streak{
   font-size:12px;padding:3px 8px;border-radius:999px;background:rgba(var(--warn-rgb),.12);
   color:var(--warn);border:1px solid rgba(var(--warn-rgb),.28);white-space:nowrap;
+}
+.streak.met{
+  background:var(--accent-2-soft);color:var(--accent-2);
+  border-color:rgba(var(--accent-2-rgb),.4);
 }
 .streak.zero{background:var(--pill-bg);color:var(--dim);border-color:var(--line-2)}
 
@@ -390,6 +425,7 @@ html[data-theme="light"] .ico-sun{display:none}
 .mode.on{
   background:linear-gradient(180deg,rgba(var(--accent-rgb),.22),rgba(var(--accent-rgb),.08));
   border-color:rgba(var(--accent-rgb),.5);color:var(--accent);
+  box-shadow:inset 0 -2px 0 0 var(--accent-2);
 }
 .mode.progress{
   grid-column:span 2;background:rgba(var(--sky-rgb),.07);border-color:var(--tab-line);color:var(--sky);
@@ -495,11 +531,39 @@ textarea::placeholder{color:var(--muted)}
 .lesson:hover{background:var(--btn-hover);color:var(--text)}
 .lesson.on{background:var(--accent-soft);border-color:rgba(var(--accent-rgb),.32);color:var(--accent)}
 .lesson .star{color:var(--line-3);font-size:11px;width:12px;flex:0 0 auto}
-.lesson .star.on{color:var(--warn)}
+.lesson .star.on{color:var(--accent-2)}
 .lesson .lname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lesson .lname.has-keys{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.7;padding:1px 0}
+.lesson .lkeys{display:inline-flex;flex-wrap:wrap;gap:3px;margin-left:4px;vertical-align:middle}
 .lesson .lbest{font-size:10px;color:var(--dim);font-variant-numeric:tabular-nums}
 .lesson.skip{opacity:.5;cursor:not-allowed}
 .lesson.skip .lname{text-decoration:line-through}
+
+/* ---- keycap chips: miniature keys used in lesson titles ---- */
+.keycap{
+  display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;
+  height:21px;min-width:19px;padding:0 5px;border-radius:6px;
+  border:1px solid var(--line);
+  background:linear-gradient(180deg,var(--key-bg),var(--block-b));
+  box-shadow:inset 0 1px 0 var(--key-inset),0 1px 0 var(--key-shadow);
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  font-size:11px;line-height:1;font-weight:500;text-align:center;letter-spacing:.02em;
+  color:var(--key-text);vertical-align:middle;
+}
+.keycap.f-pinky{--kc:var(--f-pinky)}
+.keycap.f-ring{--kc:var(--f-ring)}
+.keycap.f-middle{--kc:var(--f-middle)}
+.keycap.f-index{--kc:var(--f-index)}
+.keycap.f-thumb{--kc:var(--f-thumb)}
+.keycap.f-pinky,.keycap.f-ring,.keycap.f-middle,.keycap.f-index,.keycap.f-thumb{
+  background:
+    linear-gradient(180deg,rgba(var(--kc),.2),rgba(var(--kc),.05)),
+    linear-gradient(180deg,var(--key-bg),var(--block-b));
+}
+.keycap.muted{
+  background:linear-gradient(180deg,var(--key-bg),var(--block-b));
+  color:var(--dim);opacity:.55;
+}
 .lgroup{
   font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);
   padding:8px 7px 2px;flex:0 0 auto;
@@ -527,7 +591,8 @@ textarea::placeholder{color:var(--muted)}
 }
 .tab:hover{color:var(--text);border-color:var(--line-3)}
 .tab:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus)}
-.tab.on{background:rgba(var(--sky-rgb),.14);border-color:rgba(var(--sky-rgb),.5);color:var(--sky)}
+.tab.on{background:rgba(var(--sky-rgb),.14);border-color:rgba(var(--sky-rgb),.5);color:var(--sky);
+  box-shadow:inset 0 -2px 0 0 var(--accent-2)}
 .tab.manual{
   border-color:rgba(var(--sky-rgb),.8);
   background:linear-gradient(180deg,rgba(var(--sky-rgb),.24),rgba(var(--sky-rgb),.1));
@@ -646,6 +711,143 @@ textarea::placeholder{color:var(--muted)}
 .stat span{display:block;font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--dim);margin-top:2px}
 .hud .spacer{flex:1}
 .hud .mode-label{font-size:11.5px;color:var(--dim);letter-spacing:.05em}
+
+/* ---- combo counter ---- */
+.combo-stat{min-width:96px}
+.combo-stat b{display:flex;align-items:baseline;gap:1px;font-size:26px;line-height:1.05}
+.combo-stat b span{
+  display:inline;margin:0;font-size:inherit;letter-spacing:inherit;
+  text-transform:none;color:inherit;
+}
+.combo-stat .cx{font-size:16px;color:var(--dim);font-weight:500;margin-right:1px}
+.combo-stat .combo-best{
+  display:block;font-size:9.5px;letter-spacing:.1em;color:var(--dim);
+  margin-top:2px;font-variant-numeric:tabular-nums;
+}
+.combo-stat.is-zero b,.combo-stat.is-zero .combo-best{color:var(--muted)}
+.combo-stat[data-tier="4"] b,.combo-stat[data-tier="5"] b,.combo-stat[data-tier="6"] b{color:var(--accent-2)}
+.combo-heat{
+  width:96px;height:3px;border-radius:2px;background:var(--track);
+  overflow:hidden;margin-top:6px;
+}
+.combo-heat i{
+  display:block;height:100%;width:0;border-radius:2px;
+  background:linear-gradient(90deg,var(--warn),var(--accent-2));
+  transition:width .15s ease;
+}
+.combo-heat.decay i{transition:width 1.2s linear}
+
+/* ---- fire tiers on the pressed key ---- */
+@keyframes comboGlow{
+  0%{box-shadow:0 0 0 1px rgba(var(--accent-2-rgb),calc(.72 * var(--kb-fade,1))),
+    0 0 6px rgba(var(--accent-2-rgb),calc(.28 * var(--kb-fade,1)))}
+  55%{box-shadow:0 0 0 2px rgba(var(--accent-2-rgb),calc(.9 * var(--kb-fade,1))),
+    0 0 18px rgba(var(--accent-2-rgb),calc(.5 * var(--kb-fade,1)))}
+  100%{box-shadow:0 0 0 1px rgba(var(--accent-2-rgb),calc(.55 * var(--kb-fade,1))),
+    0 0 10px rgba(var(--accent-2-rgb),calc(.26 * var(--kb-fade,1)))}
+}
+@keyframes flameFlicker{
+  0%,100%{opacity:calc(.62 * var(--kb-fade,1));transform:scaleY(.92)}
+  50%{opacity:calc(.95 * var(--kb-fade,1));transform:scaleY(1.04)}
+}
+@keyframes emberRise{
+  0%{opacity:0;transform:translate(0,0) scale(.5)}
+  18%{opacity:calc(.9 * var(--kb-fade,1))}
+  100%{opacity:0;transform:translate(var(--edx,0px),calc(var(--u,52px) * -0.42)) scale(1.15)}
+}
+@keyframes badgeFlash{
+  0%{opacity:0;transform:translateY(3px) scale(.7)}
+  20%{opacity:1;transform:translateY(0) scale(1)}
+  70%{opacity:1}
+  100%{opacity:0}
+}
+@keyframes rimPulse{
+  0%,100%{box-shadow:0 0 0 1px rgba(var(--accent-2-rgb),calc(.3 * var(--kb-fade,1))),
+    0 0 24px rgba(var(--accent-2-rgb),calc(.12 * var(--kb-fade,1)))}
+  50%{box-shadow:0 0 0 2px rgba(var(--accent-2-rgb),calc(.5 * var(--kb-fade,1))),
+    0 0 40px rgba(var(--accent-2-rgb),calc(.2 * var(--kb-fade,1)))}
+}
+@keyframes rimPulseMax{
+  0%,100%{box-shadow:0 0 0 2px rgba(var(--accent-2-rgb),calc(.38 * var(--kb-fade,1))),
+    0 0 32px rgba(var(--accent-2-rgb),calc(.16 * var(--kb-fade,1)))}
+  50%{box-shadow:0 0 0 3px rgba(var(--accent-2-rgb),calc(.62 * var(--kb-fade,1))),
+    0 0 54px rgba(var(--accent-2-rgb),calc(.26 * var(--kb-fade,1)))}
+}
+.key[class*="combo-"]{z-index:4}
+.key.combo-2{
+  border-color:rgba(var(--accent-2-rgb),calc(.8 * var(--kb-fade,1)));
+  box-shadow:0 0 0 1px rgba(var(--accent-2-rgb),calc(.6 * var(--kb-fade,1))),
+    0 0 12px rgba(var(--accent-2-rgb),calc(.28 * var(--kb-fade,1)));
+  animation:comboGlow 460ms ease-out;
+}
+.key.combo-glow-hi{
+  box-shadow:0 0 0 2px rgba(var(--accent-2-rgb),calc(.85 * var(--kb-fade,1))),
+    0 0 22px rgba(var(--accent-2-rgb),calc(.4 * var(--kb-fade,1)));
+}
+.key.combo-3{
+  border-color:rgba(var(--accent-2-rgb),calc(1 * var(--kb-fade,1)));
+  box-shadow:0 0 0 2px rgba(var(--accent-2-rgb),calc(.8 * var(--kb-fade,1))),
+    0 0 18px rgba(var(--accent-2-rgb),calc(.4 * var(--kb-fade,1)));
+  animation:comboGlow 520ms ease-out;
+}
+.key.combo-3::before{
+  content:attr(data-combo);
+  position:absolute;top:calc(var(--u) * -0.1);right:calc(var(--u) * -0.08);
+  z-index:5;padding:0 3px;border-radius:4px;
+  font-size:calc(var(--u) * 0.16);line-height:1.35;font-weight:700;
+  color:var(--accent-2-ink);background:var(--accent-2);
+  box-shadow:0 2px 10px rgba(var(--accent-2-rgb),calc(.5 * var(--kb-fade,1)));
+  animation:badgeFlash 950ms ease-out forwards;
+  pointer-events:none;
+}
+.key.combo-4,.key.combo-5,.key.combo-6{
+  border-color:rgba(var(--accent-2-rgb),calc(1 * var(--kb-fade,1)));
+  box-shadow:0 0 0 2px rgba(var(--accent-2-rgb),calc(.9 * var(--kb-fade,1))),
+    0 0 24px rgba(var(--accent-2-rgb),calc(.5 * var(--kb-fade,1)));
+  animation:comboGlow 620ms ease-out;
+}
+.key.combo-4::after,.key.combo-5::after,.key.combo-6::after{
+  content:"";position:absolute;inset:0;border-radius:inherit;z-index:0;
+  background:
+    radial-gradient(65% 90% at 50% 118%, rgba(var(--accent-2-rgb),calc(.92 * var(--kb-fade,1))), transparent 72%),
+    linear-gradient(0deg, rgba(var(--accent-2-rgb),calc(.55 * var(--kb-fade,1))), transparent 62%);
+  animation:flameFlicker 520ms ease-in-out infinite;
+  pointer-events:none;
+}
+.key.combo-5::after{animation-duration:380ms;filter:brightness(1.14)}
+.key.combo-6::after{animation-duration:300ms;filter:brightness(1.28)}
+.key .main,.key .sub,.key .bump{position:relative;z-index:1}
+.key .ember{
+  position:absolute;left:var(--ex,50%);bottom:var(--ey,18%);
+  width:3px;height:3px;border-radius:50%;z-index:2;
+  background:var(--accent-2);pointer-events:none;display:none;
+  box-shadow:0 0 5px rgba(var(--accent-2-rgb),calc(.85 * var(--kb-fade,1)));
+  animation:emberRise var(--edur,900ms) linear infinite;
+  animation-delay:var(--edel,0s);
+}
+.kbwrap.combo-5{
+  box-shadow:0 0 0 1px rgba(var(--accent-2-rgb),calc(.35 * var(--kb-fade,1))),
+    0 0 30px rgba(var(--accent-2-rgb),calc(.14 * var(--kb-fade,1)));
+  animation:rimPulse 3.2s ease-in-out infinite;
+}
+.kbwrap.combo-6{
+  animation:rimPulseMax 4.6s ease-in-out infinite;
+  box-shadow:0 0 0 2px rgba(var(--accent-2-rgb),calc(.35 * var(--kb-fade,1))),
+    0 0 46px rgba(var(--accent-2-rgb),calc(.18 * var(--kb-fade,1)));
+}
+body.combo-blaze::before{
+  content:"";position:fixed;left:0;right:0;bottom:0;height:150px;z-index:-1;
+  pointer-events:none;
+  background:radial-gradient(60% 110% at 50% 100%, rgba(var(--accent-2-rgb),.16), transparent 72%);
+}
+@media (prefers-reduced-motion: reduce){
+  .key[class*="combo-"],.key.combo-3::before,.key.combo-4::after,
+  .key.combo-5::after,.key.combo-6::after,.kbwrap.combo-5,.kbwrap.combo-6,
+  .key .ember{animation:none !important}
+  .key.combo-4::after,.key.combo-5::after,.key.combo-6::after{opacity:calc(.7 * var(--kb-fade,1))}
+  .key .ember{display:none !important}
+  .combo-heat i{transition:width .2s !important}
+}
 .typewrap{
   position:relative;background:linear-gradient(180deg,var(--panel-soft),transparent);
   border:1px solid var(--line);border-radius:16px;padding:26px 24px;min-height:170px;
@@ -701,7 +903,7 @@ textarea::placeholder{color:var(--muted)}
 .src{font-size:11.5px;color:var(--muted);margin-top:12px;letter-spacing:.02em;min-height:15px}
 .overlay{
   position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  background:var(--overlay);border-radius:16px;backdrop-filter:blur(2.5px);
+  background:var(--overlay);border-radius:16px;
   transition:opacity .18s;z-index:5;cursor:pointer;
 }
 .overlay.hide{opacity:0;pointer-events:none}
@@ -789,17 +991,34 @@ textarea::placeholder{color:var(--muted)}
 .resgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0 14px;
   border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:14px 0}
 .resgrid b{display:block;font-size:19px;font-variant-numeric:tabular-nums}
+.bigwpm b.best,.resgrid b.best{color:var(--accent-2)}
+.resnote{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+  margin:12px 0 2px;font-size:12px;color:var(--text-2);
+}
+.resnote b{color:var(--accent-2);font-weight:600}
+.resnote .newbest{
+  font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent-2);
+  background:var(--accent-2-soft);border:1px solid rgba(var(--accent-2-rgb),.35);
+  border-radius:999px;padding:2px 8px;
+}
 .resgrid span{font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--dim)}
 .missed h3{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-bottom:7px}
 .resbtns{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}
 .resbtns .btn{flex:1;min-width:130px;padding:11px 14px;text-align:center;justify-content:center}
+.toaststack{
+  position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
+  display:flex;flex-direction:column-reverse;align-items:center;gap:8px;
+  z-index:95;width:max-content;max-width:min(560px,90vw);pointer-events:none;
+}
 .toast{
-  position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);
   background:var(--panel-2);border:1px solid var(--line-3);border-radius:11px;padding:11px 16px;
   font-size:13px;color:var(--text);box-shadow:0 16px 44px var(--shadow-lg);
-  opacity:0;pointer-events:none;transition:.22s;z-index:95;max-width:min(560px,90vw);
+  opacity:0;transform:translateY(20px);transition:opacity .22s,transform .22s;
+  max-width:100%;white-space:pre-line;text-align:center;
 }
-.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.star,.toast.best{color:var(--accent-2)}
 .toast.bad{border-color:rgba(var(--bad-rgb),.5);color:var(--bad)}
 body.dragging .kbwrap{border-color:rgba(var(--accent-rgb),.6);box-shadow:0 0 0 2px rgba(var(--accent-rgb),.2)}
 body.dragging::after{
@@ -836,7 +1055,7 @@ body.dragging::after{
 .barrow{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--text-3);margin:5px 0}
 .barrow .bl{width:74px;flex:0 0 auto;text-transform:capitalize}
 .barrow .bt{flex:1;height:8px;background:var(--track);border-radius:6px;overflow:hidden}
-.barrow .bf{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--accent-2),var(--accent))}
+.barrow .bf{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--accent-deep),var(--accent))}
 .barrow .bv{width:96px;text-align:right;font-variant-numeric:tabular-nums;color:var(--dim);font-size:11px}
 .dcols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 @media (max-width:760px){ .dcols{grid-template-columns:1fr} }
@@ -870,7 +1089,7 @@ body.dragging::after{
 <div class="app">
   <header>
     <div class="brand">
-      <h1>ClackJoy <span>· typing trainer</span></h1>
+      <h1>ClackJoy<i class="brand-dot" aria-hidden="true"></i> <span>· typing trainer</span></h1>
       <p id="kbMeta">Column-staggered split · 2 × (4×6 keys + 3 thumbs) = 54 keys</p>
     </div>
     <div class="actions">
@@ -942,9 +1161,15 @@ body.dragging::after{
         <div class="stat"><b id="sAcc">100%</b><span>accuracy</span></div>
         <div class="stat"><b id="sTime">0:00</b><span id="sTimeLabel">time</span></div>
         <div class="stat"><b id="sErr">0</b><span>errors</span></div>
+        <div class="stat combo-stat is-zero" id="comboStat" data-tier="1">
+          <b><span class="cx">×</span><span id="sCombo">0</span></b>
+          <span>combo</span>
+          <div class="combo-best" id="sBestCombo">best ×0</div>
+          <div class="combo-heat" id="comboHeat" aria-hidden="true"><i id="comboHeatFill"></i></div>
+        </div>
         <div class="spacer"></div>
         <div class="mode-label" id="modeLabel"></div>
-        <button class="btn ghost" id="btnNew" title="Generate new text">New</button>
+        <button class="btn primary" id="btnNew" title="Generate new text">New</button>
       </div>
 
       <div class="typewrap" id="typewrap">
@@ -1019,10 +1244,20 @@ body.dragging::after{
       <label class="switch"><input type="checkbox" id="optNext"><span class="box"></span><span class="lbl">Show next key</span></label>
       <label class="switch"><input type="checkbox" id="optFinger"><span class="box"></span><span class="lbl">Finger hints</span></label>
       <label class="switch"><input type="checkbox" id="optStop"><span class="box"></span><span class="lbl">Stop on error</span></label>
+      <label class="switch"><input type="checkbox" id="optCombo"><span class="box"></span><span class="lbl">Show combo</span></label>
+      <div class="setrow">
+        <span class="lbl">Combo effects</span>
+        <span class="selectwrap"><select id="selComboFx">
+          <option value="off">Off</option>
+          <option value="glow">Glow only</option>
+          <option value="full">Full fire</option>
+        </select><svg class="chev" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg></span>
+      </div>
 
       <div class="sethr"></div>
       <h3 class="settings-section">Sound</h3>
       <label class="switch"><input type="checkbox" id="optSound"><span class="box"></span><span class="lbl">Sound</span></label>
+      <label class="switch"><input type="checkbox" id="optComboSound"><span class="box"></span><span class="lbl">Combo sounds</span></label>
       <div class="setrow soundrow">
         <span class="lbl">Error sound</span>
         <span class="selectwrap"><select id="selErrorSound">
@@ -1044,6 +1279,14 @@ body.dragging::after{
           <option value="pop">Pop</option>
         </select><svg class="chev" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg></span>
         <button class="btn sm" id="btnPreviewCorrect" type="button">Preview</button>
+      </div>
+      <div class="setrow soundrow">
+        <label class="switch"><input type="checkbox" id="optCompleteSound"><span class="box"></span><span class="lbl">Completion sound</span></label>
+        <button class="btn sm" id="btnPreviewComplete" type="button">Preview</button>
+      </div>
+      <div class="setrow soundrow">
+        <label class="switch"><input type="checkbox" id="optGoalSound"><span class="box"></span><span class="lbl">Goal sound</span></label>
+        <button class="btn sm" id="btnPreviewGoal" type="button">Preview</button>
       </div>
       <div class="slider"><span class="lbl">Volume</span><input type="range" id="rngVol" min="0" max="100" step="1"><span class="val" id="valVol">35%</span></div>
       <div class="setrow">
@@ -1072,7 +1315,7 @@ body.dragging::after{
 <div class="modal" id="modal"><div class="card" id="card"></div></div>
 <div class="modal" id="boardModal"><div class="card" id="boardCard"></div></div>
 <div class="dash" id="dash"><div class="dashcard" id="dashCard"></div></div>
-<div class="toast" id="toast"></div>
+<div class="toaststack" id="toast" aria-live="polite" aria-atomic="false"></div>
 
 <script>
 (function(){
@@ -1110,7 +1353,8 @@ var LS = {
   settings: 'silakka54.settings',
   days:     'silakka54.days',
   bigrams:  'silakka54.bigrams',
-  texts:    'silakka54.text-bests'
+  texts:    'silakka54.text-bests',
+  comboBest:'silakka54.combo-best'
 };
 var HISTORY_CAP = 500;
 
@@ -1171,6 +1415,8 @@ var SETTINGS_DEFAULTS = {
   showKb:true, showNext:true, stopOnError:true, targetWpm:15,
   fingerHints:true, kbVisibility:'always', heatmapMode:'off', heatmap:false,
   sound:false, volume:0.35, clickStyle:'soft', dailyGoal:15,
+  completeSound:true, goalSound:true, comboSound:true,
+  showCombo:true, comboFx:'full',
   minOpacity:0.15, softFocus:true, theme:'system', lang:'us',
   errorSound:'thud', correctSound:'click'
 };
@@ -1213,6 +1459,14 @@ var app = {
   errors: 0,
   errorMap: Object.create(null),
 
+  combo: 0,
+  bestCombo: 0,
+  lastComboKeyAt: 0,
+  heatLevel: 0,
+  comboKeyEl: null,
+  bestComboAll: 0,
+  comboTimerId: null,
+
   tokens: null,
   tokenEls: [],
   tokenIdx: 0,
@@ -1239,6 +1493,22 @@ var app = {
   days: lsGet(LS.days, {}) || {},
   settings: lsGet(LS.settings, null) || {}
 };
+
+app.bestComboAll = Math.max(0, +lsGet(LS.comboBest, 0) || 0);
+
+/* Old history entries predate bestCombo: normalise once so every run has a number. */
+(function(){
+  if (!Array.isArray(app.history)) app.history = [];
+  var changed = false;
+  app.history.forEach(function(h){
+    if (!h || typeof h !== 'object') return;
+    if (typeof h.bestCombo !== 'number' || !isFinite(h.bestCombo)){
+      h.bestCombo = 0;
+      changed = true;
+    }
+  });
+  if (changed) lsSet(LS.history, app.history);
+})();
 
 /* --- settings migration (old profiles only had 5 keys) --- */
 (function(){
@@ -1267,6 +1537,11 @@ var app = {
   if (['off','thud','buzzer','tick','blip','bell'].indexOf(s.errorSound) === -1) s.errorSound = 'thud';
   if (['off','click','soft','pop'].indexOf(s.correctSound) === -1) s.correctSound = 'click';
   if (typeof s.sound !== 'boolean') s.sound = false;
+  if (typeof s.completeSound !== 'boolean') s.completeSound = true;
+  if (typeof s.goalSound !== 'boolean') s.goalSound = true;
+  if (typeof s.comboSound !== 'boolean') s.comboSound = true;
+  if (typeof s.showCombo !== 'boolean') s.showCombo = true;
+  if (['off','glow','full'].indexOf(s.comboFx) === -1) s.comboFx = 'full';
   if (typeof s.minOpacity !== 'number' || !isFinite(s.minOpacity)) s.minOpacity = 0.15;
   s.minOpacity = clamp(s.minOpacity, 0.05, 0.6);
   if (['always','fade','error'].indexOf(s.kbVisibility) === -1) s.kbVisibility = 'always';
@@ -3629,7 +3904,7 @@ function applyHeat(){
     if (!ms){ el.style.setProperty('--tint', fingerTint(finger, 0.08)); return; }
     var t = clamp((ms - 90) / 310, 0, 1);
     var cold = cssRgbVar('--speed-cold', [120,220,255]);
-    var hot = cssRgbVar('--speed-hot', [248,113,113]);
+    var hot = cssRgbVar('--speed-hot', [255,154,60]);
     var r = Math.round(cold[0] + (hot[0] - cold[0]) * t);
     var g = Math.round(cold[1] + (hot[1] - cold[1]) * t);
     var b = Math.round(cold[2] + (hot[2] - cold[2]) * t);
@@ -3859,6 +4134,37 @@ function pairTitle(pair){
   return String(pair || '').toUpperCase().split('').join(' ');
 }
 
+/* ---- lesson title rendering: keycap chips ---- */
+function lessonNewKeys(l){
+  return (l && l.g === 'letters' && l.newChars) ? l.newChars : '';
+}
+function lessonNewKeysTitle(l){
+  return lessonNewKeys(l).toUpperCase().split('').join(' ');
+}
+function keycapLabel(ch){
+  return /[a-z]/.test(ch) ? ch.toUpperCase() : ch;
+}
+function keycapHtml(ch, muted){
+  var finger = app.charIndex ? charFinger(ch) : null;
+  return '<kbd class="keycap' + (finger ? ' f-' + finger : '') + (muted ? ' muted' : '') +
+    '" aria-hidden="true">' + esc(keycapLabel(ch)) + '</kbd>';
+}
+function keycapsHtml(chars, muted){
+  return '<span class="lkeys">' + String(chars || '').split('').map(function(ch){
+    return keycapHtml(ch, muted);
+  }).join('') + '</span>';
+}
+function lessonTitleHtml(l){
+  var keys = lessonNewKeys(l);
+  if (!keys) return esc(l.t);
+  return esc(l.titlePrefix || '') + keycapsHtml(keys, l.skip);
+}
+function lessonPlainTitle(l, i){
+  var keys = lessonNewKeys(l);
+  if (keys) return 'Lesson ' + (i + 1) + ', new keys ' + lessonNewKeysTitle(l);
+  return 'Lesson ' + (i + 1) + ', ' + l.t;
+}
+
 function nextLessonIndex(from, includeSelf){
   var start = includeSelf ? from : from + 1;
   for (var i = start; i < LESSONS.length; i++) if (!LESSONS[i].skip) return i;
@@ -3898,6 +4204,7 @@ function refreshLessons(){
     l.skip = false;
     l.skipReason = '';
     l.newChars = '';
+    l.titlePrefix = '';
     l.t = l.title || '';
     if (typeof l.lastDrill !== 'string') l.lastDrill = '';
 
@@ -3920,11 +4227,14 @@ function refreshLessons(){
       } else if (i === 0){
         l.t = pairTitle(add);
       } else if (i === 1){
-        l.t = pairTitle(prevPair) + ' + ' + pairTitle(add);
+        l.titlePrefix = pairTitle(prevPair) + ' + ';
+        l.t = l.titlePrefix + pairTitle(add);
       } else if (firstOfRow){
-        l.t = (l.row === 'top' ? 'Top row: ' : l.row === 'bottom' ? 'Bottom: ' : 'Home row: ') + pairTitle(add);
+        l.titlePrefix = (l.row === 'top' ? 'Top row: ' : l.row === 'bottom' ? 'Bottom: ' : 'Home row: ');
+        l.t = l.titlePrefix + pairTitle(add);
       } else {
-        l.t = '+ ' + pairTitle(add);
+        l.titlePrefix = '+ ';
+        l.t = l.titlePrefix + pairTitle(add);
       }
       prevPair = add || prevPair;
     }
@@ -4692,6 +5002,173 @@ function updateHud(){
   }
 }
 
+/* ---- combo counter: state, tiers, heat, pooled embers ---- */
+var COMBO_EMBER_CAP = 12;
+var comboEmberPool = [];
+var comboKeyClasses = ['combo-2', 'combo-3', 'combo-4', 'combo-5', 'combo-6', 'combo-glow-hi'];
+
+function prefersReducedMotion(){
+  try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
+  catch(e){ return false; }
+}
+
+/* 1: 0–9 · 2: 10–24 · 3: 25–49 · 4: 50–99 · 5: 100–199 · 6: 200+ */
+function comboTier(n){
+  if (n >= 200) return 6;
+  if (n >= 100) return 5;
+  if (n >= 50) return 4;
+  if (n >= 25) return 3;
+  if (n >= 10) return 2;
+  return 1;
+}
+
+function comboKeyElForChar(ch){
+  if (!app.keyEls || !ch) return null;
+  var opts = app.charIndex[ch];
+  if (!opts || !opts.length) return null;
+  return app.keyEls.get(opts[0].mr + ',' + opts[0].mc) || null;
+}
+
+function comboKeyElForToken(t){
+  if (!app.keyEls || !t) return null;
+  var pos = app.namePosAll[t.target];
+  if (!pos) return null;
+  return app.keyEls.get(pos.mr + ',' + pos.mc) || null;
+}
+
+function clearComboKey(){
+  var el = app.comboKeyEl;
+  if (el){
+    comboKeyClasses.forEach(function(c){ el.classList.remove(c); });
+    el.removeAttribute('data-combo');
+  }
+  comboEmberPool.forEach(function(e){
+    e.style.display = 'none';
+    if (e.parentNode) e.parentNode.removeChild(e);
+  });
+  var wrap = $('#kbWrap');
+  if (wrap) wrap.classList.remove('combo-5', 'combo-6');
+  if (document.body) document.body.classList.remove('combo-blaze');
+  app.comboKeyEl = null;
+}
+
+function spawnComboEmbers(el, count){
+  if (!el || prefersReducedMotion() || app.settings.comboFx !== 'full') return;
+  var n = Math.min(count, COMBO_EMBER_CAP);
+  for (var i = 0; i < n; i++){
+    var e = comboEmberPool[i];
+    if (!e){
+      e = document.createElement('i');
+      e.className = 'ember';
+      comboEmberPool.push(e);
+    }
+    if (e.parentNode !== el) el.appendChild(e);
+    e.style.setProperty('--ex', (16 + rand(68)) + '%');
+    e.style.setProperty('--ey', (6 + rand(24)) + '%');
+    e.style.setProperty('--edx', (rand(17) - 8) + 'px');
+    e.style.setProperty('--edel', (rand(70) / 100).toFixed(2) + 's');
+    e.style.setProperty('--edur', (720 + rand(420)) + 'ms');
+    e.style.display = 'block';
+  }
+}
+
+function paintComboKey(el){
+  clearComboKey();
+  if (!el) return;
+  app.comboKeyEl = el;
+  var fx = app.settings.comboFx || 'full';
+  var tier = comboTier(app.combo);
+  if (fx === 'off' || tier < 2) return;
+  el.setAttribute('data-combo', String(app.combo));
+  if (fx === 'glow'){
+    el.classList.add('combo-2');
+    if (tier >= 4) el.classList.add('combo-glow-hi');
+    return;
+  }
+  el.classList.add('combo-' + tier);
+  if (tier >= 5){
+    var wrap = $('#kbWrap');
+    if (wrap) wrap.classList.add('combo-' + tier);
+    if (document.body) document.body.classList.add('combo-blaze');
+  }
+  if (tier === 3) spawnComboEmbers(el, 2);
+  else if (tier === 4) spawnComboEmbers(el, 2);
+  else if (tier === 5) spawnComboEmbers(el, 3);
+  else if (tier >= 6) spawnComboEmbers(el, 4);
+}
+
+function comboHeatSet(tier, decay){
+  var bar = $('#comboHeat');
+  var fill = $('#comboHeatFill');
+  if (!bar || !fill) return;
+  var pct = app.combo > 0 ? Math.round(tier / 6 * 100) : 0;
+  bar.classList.toggle('decay', !!decay);
+  fill.style.width = pct + '%';
+  app.heatLevel = pct;
+}
+
+function comboHeatTick(){
+  if (app.heatLevel <= 0) return;
+  if (!app.lastComboKeyAt || performance.now() - app.lastComboKeyAt >= 4000){
+    comboHeatSet(0, true);
+  }
+}
+
+function comboHud(){
+  var stat = $('#comboStat');
+  if (!stat) return;
+  var tier = comboTier(app.combo);
+  stat.classList.toggle('hidden', app.settings.showCombo === false);
+  stat.classList.toggle('is-zero', app.combo === 0);
+  stat.setAttribute('data-tier', String(tier));
+  var num = $('#sCombo');
+  if (num) num.textContent = app.combo;
+  var best = $('#sBestCombo');
+  if (best) best.textContent = 'best ×' + app.bestCombo;
+}
+
+function comboMilestone(){
+  var n = app.combo;
+  var big = n >= 100 && n % 100 === 0;
+  if (n !== 10 && n !== 25 && n !== 50 && !big) return;
+  Sound.combo(big);
+  if (n === 50 || big){
+    toast('Combo ×' + n + (big ? ' 🔥' : ''), false, { duration: big ? 3200 : 2600 });
+  }
+}
+
+function comboHit(el){
+  app.combo++;
+  if (app.combo > app.bestCombo) app.bestCombo = app.combo;
+  app.lastComboKeyAt = performance.now();
+  paintComboKey(el);
+  comboHud();
+  comboHeatSet(comboTier(app.combo), false);
+  comboMilestone();
+}
+
+function comboBreak(){
+  app.combo = 0;
+  app.lastComboKeyAt = 0;
+  clearComboKey();
+  comboHud();
+  comboHeatSet(0, false);
+}
+
+function resetComboRun(){
+  app.combo = 0;
+  app.bestCombo = 0;
+  app.lastComboKeyAt = 0;
+  clearComboKey();
+  comboHud();
+  comboHeatSet(0, false);
+}
+
+function applyComboVisibility(){
+  var stat = $('#comboStat');
+  if (stat) stat.classList.toggle('hidden', app.settings.showCombo === false);
+}
+
 /* ============================================================
    15. Run lifecycle
    ============================================================ */
@@ -4802,6 +5279,8 @@ function startRun(opt){
   app.manualLayer = null;
   app.timeLimit = (app.mode === 'time') ? app.timeChoice : 0;
 
+  resetComboRun();
+
   hideModal();
   renderText();
   renderSource();
@@ -4836,6 +5315,8 @@ function startTokenRun(kind, tokens){
   app.lastChar = '';
   app.manualLayer = null;
   app.timeLimit = 0;
+
+  resetComboRun();
 
   hideModal();
   renderTokens();
@@ -4883,7 +5364,17 @@ function beginRun(){
 function renderModeLabel(){
   var el = $('#modeLabel');
   if (!el) return;
-  if (app.mode === 'lesson') el.textContent = 'Lesson ' + (app.lessonIdx + 1) + ' — ' + LESSONS[app.lessonIdx].t;
+  if (app.mode === 'lesson'){
+    var L = LESSONS[app.lessonIdx] || {};
+    var keys = lessonNewKeys(L);
+    if (keys){
+      el.innerHTML = 'Lesson ' + (app.lessonIdx + 1) + ' · ' + keycapsHtml(keys, L.skip);
+      el.setAttribute('aria-label', lessonPlainTitle(L, app.lessonIdx));
+    } else {
+      el.textContent = 'Lesson ' + (app.lessonIdx + 1) + ' — ' + (L.t || '');
+      el.removeAttribute('aria-label');
+    }
+  }
   else if (app.mode === 'words') el.textContent = 'Words · ' + app.wordCount;
   else if (app.mode === 'time') el.textContent = 'Time · ' + app.timeChoice + 's';
   else if (app.mode === 'custom') el.textContent = 'Custom text';
@@ -4972,6 +5463,7 @@ function typeChar(ch){
     scrollCaret();
     noteKeyResult(true);
     Sound.click();
+    comboHit(comboKeyElForChar(expected));
 
     if (app.idx >= app.text.length){
       if (app.mode === 'time') extendText();
@@ -4989,6 +5481,7 @@ function typeChar(ch){
   app.lastKeyTime = 0;
   app.lastChar = '';
   noteKeyResult(false);
+  comboBreak();
   if (app.settings.sound) Sound.error();
 
   if (app.settings.stopOnError){
@@ -5048,6 +5541,7 @@ function handleTokenKey(e){
   if (!app.focused){ app.focused = true; setOverlay(false); }
 
   if (k === 'Shift' || k === 'Control' || k === 'Alt' || k === 'Meta' || k === 'CapsLock') return;
+  if (k === 'Backspace'){ e.preventDefault(); return; }
   if (app.finished) return;
 
   var t = app.tokens[app.tokenIdx];
@@ -5060,6 +5554,7 @@ function handleTokenKey(e){
     app.errors++;
     recordStat(t.target, false);
     noteKeyResult(false);
+    comboBreak();
     flashToken(t, false);
     if (app.settings.sound) Sound.error();
     updateHud();
@@ -5071,6 +5566,7 @@ function handleTokenKey(e){
   noteKeyResult(true);
   flashToken(t, true);
   Sound.click();
+  comboHit(comboKeyElForToken(t));
 
   var tokenPos = app.namePosAll[t.target];
   maybeDropManual(tokenPos ? tokenPos.layer : null);
@@ -5095,12 +5591,32 @@ function finishRun(){
 
   var stats = currentStats();
   app.elapsed = stats.elapsed;
+  var goalBefore = todayMinutes();
+  var goalTarget = app.settings.dailyGoal || 15;
   if (app.tokens) paintTokens(); else paintAll();
   updateHud();
   clearHints();
-  Sound.finish();
+  if (app.mode === 'lesson') Sound.complete(); else Sound.finish();
 
   var modeKey = app.mode === 'layers' && app.tokens ? 'layers' : app.mode;
+  var scope = runScope({
+    mode: modeKey,
+    kind: app.tokens ? app.layerKind : null,
+    lesson: app.mode === 'lesson' ? app.lessonIdx : null,
+    text: app.mode === 'texts' ? app.textIdx : null
+  });
+  var prevBestWpm = 0, prevBestAcc = 0;
+  app.history.forEach(function(h){
+    if (runScope(h) !== scope) return;
+    if ((h.wpm || 0) > prevBestWpm) prevBestWpm = h.wpm || 0;
+    if ((h.acc || 0) > prevBestAcc) prevBestAcc = h.acc || 0;
+  });
+  var prevAllCombo = app.bestComboAll;
+  var flags = {
+    newWpm: app.keystrokes > 0 && stats.wpm > prevBestWpm,
+    newAcc: app.keystrokes > 0 && stats.acc > prevBestAcc,
+    newCombo: false
+  };
 
   if (app.keystrokes > 0){
     app.history.push({
@@ -5109,6 +5625,7 @@ function finishRun(){
       kind: app.tokens ? app.layerKind : null,
       lesson: app.mode === 'lesson' ? app.lessonIdx : null,
       text: app.mode === 'texts' ? app.textIdx : null,
+      bestCombo: app.bestCombo,
       ms: Math.round(stats.elapsed),
       date: dateKey(new Date()),
       t: Date.now()
@@ -5119,8 +5636,12 @@ function finishRun(){
     lsSet(LS.bigrams, app.bigramStats);
     addDaySession(stats.elapsed, app.keystrokes, stats.wpm);
 
+    /* Goal celebration only on the practice-driven transition, once per day. */
+    if (goalBefore < goalTarget && todayMinutes() >= goalTarget) celebrateGoal();
+
     if (app.mode === 'lesson'){
       var prev = app.lessonBests[app.lessonIdx] || { wpm: 0, acc: 0, done: false };
+      var wasBest = (prev.wpm || 0) > 0 && stats.wpm > prev.wpm;
       var target = app.settings.targetWpm || 15;
       app.lessonBests[app.lessonIdx] = {
         wpm: Math.max(prev.wpm || 0, stats.wpm),
@@ -5129,6 +5650,7 @@ function finishRun(){
       };
       lsSet(LS.bests, app.lessonBests);
       renderLessons();
+      celebrateLesson(stats, wasBest);
     }
     if (app.mode === 'texts' && app.textIdx !== null){
       var tb = app.textBests[app.textIdx] || { wpm: 0, acc: 0 };
@@ -5139,10 +5661,35 @@ function finishRun(){
       lsSet(LS.texts, app.textBests);
     }
   }
+  if (app.keystrokes > 0 && app.bestCombo > prevAllCombo){
+    app.bestComboAll = app.bestCombo;
+    flags.newCombo = true;
+    lsSet(LS.comboBest, app.bestComboAll);
+  }
 
   renderSpark();
   renderDaily();
-  showResults(stats);
+  showResults(stats, flags);
+}
+
+function runScope(h){
+  h = h || {};
+  return [h.mode || '', h.kind || '', h.lesson == null ? '' : h.lesson, h.text == null ? '' : h.text].join('|');
+}
+
+function celebrateLesson(stats, wasBest){
+  var last = nextLessonIndex(app.lessonIdx, false) === -1;
+  var L = LESSONS[app.lessonIdx] || {};
+  var keys = lessonNewKeys(L);
+  var title = last ? 'All lessons complete' : 'Lesson ' + (app.lessonIdx + 1) + ' complete';
+  var head = esc(title) + (keys ? ' · ' + keycapsHtml(keys, L.skip) : '');
+  var lines = [head + ' · ' + stats.wpm + ' WPM · ' + (Math.round(stats.acc * 10) / 10) + '%'];
+  if (wasBest) lines.push('New best for this lesson');
+  if (app.bestCombo > 0) lines.push('Best combo ×' + app.bestCombo);
+  var target = app.settings.targetWpm || 15;
+  if (stats.acc >= 95 && stats.wpm >= target) lines.push('★ Star earned');
+  var aria = title + (keys ? ', new keys ' + lessonNewKeysTitle(L) : '');
+  toast(lines.join('\n'), false, { duration: 3500, html: true, aria: aria });
 }
 
 function modeTitle(){
@@ -5156,7 +5703,8 @@ function modeTitle(){
   return 'Custom';
 }
 
-function showResults(stats){
+function showResults(stats, flags){
+  flags = flags || {};
   var unit = app.tokens ? 'tokens/min' : 'wpm';
   var miss = Object.keys(app.errorMap).map(function(k){ return [k, app.errorMap[k]]; })
     .sort(function(a, b){ return b[1] - a[1]; }).slice(0, 6);
@@ -5178,12 +5726,17 @@ function showResults(stats){
   $('#card').innerHTML =
     '<div class="reshead"><h2>Result · ' + esc(modeTitle()) + '</h2>' +
       '<button class="x" id="resClose" aria-label="Close">✕</button></div>' +
-    '<div class="bigwpm"><b>' + stats.wpm + '</b><span>' + unit + '</span></div>' +
+    '<div class="bigwpm"><b class="' + (flags.newWpm ? 'best' : '') + '">' + stats.wpm + '</b><span>' + unit + '</span></div>' +
     '<div class="resgrid">' +
       '<div><b>' + stats.raw + '</b><span>raw ' + unit + '</span></div>' +
-      '<div><b>' + (Math.round(stats.acc * 10) / 10) + '%</b><span>accuracy</span></div>' +
+      '<div><b class="' + (flags.newAcc ? 'best' : '') + '">' + (Math.round(stats.acc * 10) / 10) + '%</b><span>accuracy</span></div>' +
       '<div><b>' + fmtSeconds(stats.elapsed) + '</b><span>time</span></div>' +
       '<div><b>' + app.errors + '</b><span>errors</span></div>' +
+    '</div>' +
+    '<div class="resnote"><span>Best combo <b>×' + app.bestCombo + '</b></span>' +
+      (flags.newCombo
+        ? '<span class="newbest">New best combo</span>'
+        : (app.bestComboAll > app.bestCombo ? '<span class="dim">all-time ×' + app.bestComboAll + '</span>' : '')) +
     '</div>' + missedHtml +
     '<div class="resbtns">' +
       '<button class="btn" id="resRetry">Retry<span class="kbd">Tab</span></button>' +
@@ -5260,6 +5813,26 @@ function todayMinutes(){
   return dayMinutes(e);
 }
 
+/* Daily-goal celebration: one toast per calendar day, keyed by date. */
+function goalToastKey(){
+  return 'clackjoy.goalToast.' + dateKey(new Date());
+}
+function goalCelebratedToday(){
+  return !!lsGet(goalToastKey(), false);
+}
+function celebrateGoal(){
+  if (goalCelebratedToday()) return false;
+  var goal = app.settings.dailyGoal || 15;
+  var mins = todayMinutes();
+  lsSet(goalToastKey(), true);
+  Sound.goal();
+  var lines = ['Daily goal reached · ' + (mins >= 10 ? Math.round(mins) : mins.toFixed(0)) + ' / ' + goal + ' min'];
+  var streak = computeStreak(app.days, goal, dateKey(new Date()));
+  if (streak) lines.push('🔥 ' + streak + '-day streak');
+  toast(lines.join('\n'), false, { duration: 3500 });
+  return true;
+}
+
 /* Streak: consecutive days that met the goal. Today only breaks the streak
    once it has ended, so an unmet today is skipped. */
 function computeStreak(days, goalMin, todayKeyStr){
@@ -5290,7 +5863,12 @@ function renderDaily(){
   var badge = $('#streakBadge');
   if (badge){
     badge.textContent = '🔥 ' + streak;
-    badge.className = 'streak' + (streak ? '' : ' zero');
+    badge.className = 'streak' + (pct >= 1 ? ' met' : (streak ? '' : ' zero'));
+  }
+  var daily = $('.daily');
+  if (daily){
+    daily.classList.toggle('partial', pct > 0 && pct < 1);
+    daily.classList.toggle('met', pct >= 1);
   }
 }
 
@@ -5442,6 +6020,38 @@ var Sound = (function(){
     return false;
   }
 
+  /* Rising three-note completion phrase (D5–A5), distinct from finish(). */
+  function playComplete(){
+    var ok = false;
+    [[587.33, 0], [739.99, 0.06], [880, 0.12]].forEach(function(n){
+      ok = voice({ peak: 0.12, dur: 0.18, attack: 0.01, delay: n[1],
+        voices: [{ type: 'sine', from: n[0] }, { type: 'sine', from: n[0] * 2, level: 0.18 }] }) || ok;
+    });
+    return ok;
+  }
+
+  /* Two-note resolve (C5→G5) for reaching the daily goal, ~600 ms. */
+  function playGoal(){
+    var a = voice({ peak: 0.12, dur: 0.26, attack: 0.012,
+      voices: [{ type: 'sine', from: 523.25 }, { type: 'sine', from: 783.99, level: 0.3 }] });
+    var b = voice({ peak: 0.13, dur: 0.34, attack: 0.012, delay: 0.24,
+      voices: [{ type: 'sine', from: 783.99 }, { type: 'sine', from: 1046.5, level: 0.28 }] });
+    return a || b;
+  }
+
+  /* Short rising spark for combo milestones; the 100s get an extra note. */
+  function playCombo(long){
+    var notes = long
+      ? [[523.25, 0], [659.25, 0.06], [783.99, 0.12], [1046.5, 0.19]]
+      : [[659.25, 0], [880, 0.07], [1174.66, 0.14]];
+    var ok = false;
+    notes.forEach(function(n){
+      ok = voice({ peak: 0.1, dur: long ? 0.2 : 0.14, attack: 0.008, delay: n[1],
+        voices: [{ type: 'triangle', from: n[0] }, { type: 'sine', from: n[0] * 2, level: 0.16 }] }) || ok;
+    });
+    return ok;
+  }
+
   var S = {
     levels: LEVELS,
     lastErrorAt: -1e9,
@@ -5478,6 +6088,18 @@ var Sound = (function(){
       var lv = 0.12;
       voice({ peak: lv, dur: 0.16, voices: [{ type: 'sine', from: 660 }] });
       return voice({ peak: lv * 0.8, dur: 0.22, delay: 0.12, voices: [{ type: 'sine', from: 990 }] });
+    },
+    complete: function(){
+      if (!app.settings.sound || app.settings.completeSound === false) return false;
+      return playComplete();
+    },
+    goal: function(){
+      if (!app.settings.sound || app.settings.goalSound === false) return false;
+      return playGoal();
+    },
+    combo: function(long){
+      if (!app.settings.sound || app.settings.comboSound === false) return false;
+      return playCombo(!!long);
     }
   };
   return S;
@@ -5563,12 +6185,17 @@ function renderLessons(){
     }
 
     var b = document.createElement('button');
+    var keys = lessonNewKeys(l);
     b.className = 'lesson' + (app.mode === 'lesson' && i === app.lessonIdx ? ' on' : '') +
       (l.skip ? ' skip' : '');
+    b.setAttribute('aria-label', lessonPlainTitle(l, i));
+    b.title = l.t;
     b.innerHTML =
       '<span class="star' + ((best && best.done) ? ' on' : '') + '">' +
         (l.skip ? '–' : ((best && best.done) ? '★' : '☆')) + '</span>' +
-      '<span class="lname">' + (i + 1) + '. ' + esc(l.t) + '</span>' +
+      '<span class="lname' + (keys ? ' has-keys' : '') + '">' +
+        (i + 1) + '. ' + lessonTitleHtml(l) +
+      '</span>' +
       '<span class="lbest">' + (best && best.wpm ? Math.round(best.wpm) + 'w' : '') + '</span>';
     b.onclick = function(){
       if (l.skip){ toast(l.t + ' — this board cannot type it.', true); return; }
@@ -5963,12 +6590,14 @@ function resetStats(){
   app.lessonBests = {};
   app.textBests = {};
   app.recent = [];
+  app.bestComboAll = 0;
   lsSet(LS.history, []);
   lsSet(LS.stats, {});
   lsSet(LS.bigrams, {});
   lsSet(LS.days, {});
   lsSet(LS.bests, {});
   lsSet(LS.texts, {});
+  lsSet(LS.comboBest, 0);
   renderSpark();
   renderDaily();
   renderLessons();
@@ -5980,13 +6609,45 @@ function resetStats(){
 /* ============================================================
    23. Vial import / reset
    ============================================================ */
-function toast(msg, bad){
-  var t = $('#toast');
-  t.textContent = msg;
-  t.classList.toggle('bad', !!bad);
-  t.classList.add('show');
-  clearTimeout(toast._id);
-  toast._id = setTimeout(function(){ t.classList.remove('show'); }, 3400);
+var TOAST_STACK_MAX = 3;
+var toastLive = [];
+
+function removeToast(entry){
+  var i = toastLive.indexOf(entry);
+  if (i !== -1) toastLive.splice(i, 1);
+  if (entry.el && entry.el.parentNode) entry.el.parentNode.removeChild(entry.el);
+}
+
+function toast(msg, bad, opts){
+  if (bad && typeof bad === 'object'){ opts = bad; bad = false; }
+  opts = opts || {};
+  var stack = $('#toast');
+  if (!stack) return null;
+  var el = document.createElement('div');
+  el.className = 'toast' + (bad ? ' bad' : '') +
+    (/★/.test(String(msg)) ? ' star' : '') +
+    (/new best/i.test(String(msg)) ? ' best' : '');
+  if (opts.html) el.innerHTML = msg;
+  else el.textContent = msg;
+  if (opts.aria) el.setAttribute('aria-label', opts.aria);
+  el.setAttribute('role', 'status');
+  stack.appendChild(el);
+  el.classList.add('show');
+
+  var entry = { el: el };
+  toastLive.push(entry);
+  while (toastLive.length > TOAST_STACK_MAX){
+    var old = toastLive.shift();
+    old.el.classList.remove('show');
+    setTimeout(function(o){ return function(){ removeToast(o); }; }(old), 240);
+  }
+
+  var duration = typeof opts.duration === 'number' ? opts.duration : 3400;
+  entry.timer = setTimeout(function(){
+    el.classList.remove('show');
+    entry.timer = setTimeout(function(){ removeToast(entry); }, 240);
+  }, duration);
+  return el;
 }
 
 function importVil(text){
@@ -6217,7 +6878,7 @@ function selectWrap(inner){
 
 function updateSoundControls(){
   var on = !!app.settings.sound;
-  ['#btnPreviewError', '#btnPreviewCorrect', '#btnPreviewClick'].forEach(function(sel){
+  ['#btnPreviewError', '#btnPreviewCorrect', '#btnPreviewClick', '#btnPreviewComplete', '#btnPreviewGoal'].forEach(function(sel){
     var b = $(sel);
     if (b) b.disabled = !on;
   });
@@ -6229,6 +6890,12 @@ function previewSound(kind){
   if (kind === 'error'){
     if ((app.settings.errorSound || 'off') === 'off'){ toast('Error sound is off.'); return; }
     Sound.error(null, null, true);
+  } else if (kind === 'complete'){
+    if (app.settings.completeSound === false){ toast('Completion sound is off.'); return; }
+    Sound.complete();
+  } else if (kind === 'goal'){
+    if (app.settings.goalSound === false){ toast('Goal sound is off.'); return; }
+    Sound.goal();
   } else {
     if ((app.settings.correctSound || 'off') === 'off'){ toast('Correct sound is off.'); return; }
     Sound.correct(null, true);
@@ -6305,7 +6972,12 @@ function bindUI(){
   $('#optNext').checked = !!s.showNext;
   $('#optFinger').checked = !!s.fingerHints;
   $('#optStop').checked = !!s.stopOnError;
+  $('#optCombo').checked = s.showCombo !== false;
+  $('#selComboFx').value = s.comboFx || 'full';
   $('#optSound').checked = !!s.sound;
+  $('#optComboSound').checked = s.comboSound !== false;
+  $('#optCompleteSound').checked = s.completeSound !== false;
+  $('#optGoalSound').checked = s.goalSound !== false;
   $('#selKbVis').value = s.kbVisibility;
   $('#selHeat').value = s.heatmapMode;
   $('#selClick').value = s.clickStyle;
@@ -6341,6 +7013,17 @@ function bindUI(){
     save(); paintAll();
   };
   $('#optStop').onchange = function(){ s.stopOnError = this.checked; save(); };
+  $('#optCombo').onchange = function(){
+    s.showCombo = this.checked;
+    save();
+    applyComboVisibility();
+  };
+  $('#selComboFx').onchange = function(){
+    s.comboFx = this.value;
+    save();
+    var el = app.comboKeyEl;
+    paintComboKey(el);
+  };
 
   $('#selKbVis').onchange = function(){
     s.kbVisibility = this.value;
@@ -6370,6 +7053,21 @@ function bindUI(){
     updateSoundControls();
     if (s.sound) Sound.ensure();
   };
+  $('#optComboSound').onchange = function(){
+    s.comboSound = this.checked;
+    save();
+    if (this.checked) Sound.combo(false);
+  };
+  $('#optCompleteSound').onchange = function(){
+    s.completeSound = this.checked;
+    save();
+    updateSoundControls();
+  };
+  $('#optGoalSound').onchange = function(){
+    s.goalSound = this.checked;
+    save();
+    updateSoundControls();
+  };
   $('#selErrorSound').value = s.errorSound;
   $('#selCorrectSound').value = s.correctSound;
   $('#selErrorSound').onchange = function(){
@@ -6383,6 +7081,8 @@ function bindUI(){
   $('#btnPreviewError').onclick = function(){ previewSound('error'); };
   $('#btnPreviewCorrect').onclick = function(){ previewSound('correct'); };
   $('#btnPreviewClick').onclick = function(){ previewSound('correct'); };
+  $('#btnPreviewComplete').onclick = function(){ previewSound('complete'); };
+  $('#btnPreviewGoal').onclick = function(){ previewSound('goal'); };
   updateSoundControls();
   $('#selClick').onchange = function(){ s.clickStyle = this.value; save(); };
 
@@ -6592,6 +7292,8 @@ function init(){
   startRun({ mode: 'lesson' });
   updateTarget();
   applyKeyboardVisibility();
+  applyComboVisibility();
+  app.comboTimerId = setInterval(comboHeatTick, 400);
 }
 
 init();
