@@ -67,14 +67,12 @@
   --key-trns:#6b7079;
   --key-shadow:rgba(0,0,0,.5);
   --key-inset:rgba(255,255,255,.045);
-  --key-skirt-hi:#1c1d20;--key-skirt-lo:#111214;
-  --key-top-hi:#2a2b2f;--key-top-lo:#1f2023;
-  --key-edge:rgba(255,255,255,.07);
-  --key-hi:rgba(255,255,255,.075);
-  --key-drop:rgba(0,0,0,.6);
-  --heat-hi:rgba(255,176,32,.95);--heat-lo:rgba(255,138,43,.5);
-  --heat-core:rgba(255,246,220,.9);--heat-legend:#fff3e0;
+  --key-bg:rgba(255,255,255,.04);--key-sheen:rgba(255,255,255,.03);
+  --key-line:rgba(255,255,255,.085);--key-hi:rgba(255,255,255,.06);--key-drop:rgba(0,0,0,.45);
+  --heat-hi:rgba(255,138,43,.34);--heat-lo:rgba(255,138,43,.1);
+  --heat-core:rgba(255,236,200,.95);--heat-legend:#ffd28a;
   --spark-a:#ffb020;--spark-b:#fff4de;
+  --sweep:rgba(255,176,32,.06);--sweep-core:rgba(255,240,215,.13);
 
   --track:#2a2d31;
   --input-bg:#101113;
@@ -210,14 +208,12 @@
   --key-trns:#a49d94;
   --key-shadow:rgba(21,19,18,.07);
   --key-inset:rgba(255,255,255,.9);
-  --key-skirt-hi:#e3ded7;--key-skirt-lo:#d2cbc1;
-  --key-top-hi:#fdfcfa;--key-top-lo:#f0ece6;
-  --key-edge:rgba(40,30,20,.13);
-  --key-hi:rgba(255,255,255,.95);
-  --key-drop:rgba(40,30,20,.16);
-  --heat-hi:rgba(234,88,12,.42);--heat-lo:rgba(234,88,12,.15);
-  --heat-core:rgba(255,255,255,.75);--heat-legend:#7c2d12;
-  --spark-a:#c2410c;--spark-b:#f59e0b;
+  --key-bg:#ffffff;--key-sheen:transparent;
+  --key-line:rgba(20,16,12,.11);--key-hi:rgba(255,255,255,1);--key-drop:rgba(20,16,12,.07);
+  --heat-hi:rgba(234,88,12,.2);--heat-lo:rgba(234,88,12,.06);
+  --heat-core:rgba(255,255,255,.95);--heat-legend:#9a3412;
+  --spark-a:#ea580c;--spark-b:#f59e0b;
+  --sweep:rgba(234,88,12,.05);--sweep-core:rgba(255,255,255,.4);
 
   --track:#e8e4de;
   --input-bg:#fbfaf8;
@@ -346,14 +342,12 @@
     --key-trns:#a49d94;
     --key-shadow:rgba(21,19,18,.07);
     --key-inset:rgba(255,255,255,.9);
-    --key-skirt-hi:#e3ded7;--key-skirt-lo:#d2cbc1;
-    --key-top-hi:#fdfcfa;--key-top-lo:#f0ece6;
-    --key-edge:rgba(40,30,20,.13);
-    --key-hi:rgba(255,255,255,.95);
-    --key-drop:rgba(40,30,20,.16);
-    --heat-hi:rgba(234,88,12,.42);--heat-lo:rgba(234,88,12,.15);
-    --heat-core:rgba(255,255,255,.75);--heat-legend:#7c2d12;
-    --spark-a:#c2410c;--spark-b:#f59e0b;
+    --key-bg:#ffffff;--key-sheen:transparent;
+    --key-line:rgba(20,16,12,.11);--key-hi:rgba(255,255,255,1);--key-drop:rgba(20,16,12,.07);
+    --heat-hi:rgba(234,88,12,.2);--heat-lo:rgba(234,88,12,.06);
+    --heat-core:rgba(255,255,255,.95);--heat-legend:#9a3412;
+    --spark-a:#ea580c;--spark-b:#f59e0b;
+    --sweep:rgba(234,88,12,.05);--sweep-core:rgba(255,255,255,.4);
     --track:#e8e4de;
     --input-bg:#fbfaf8;
     --pill-bg:#f1eee9;
@@ -478,7 +472,7 @@ body{
   .bg::before{animation:none;will-change:auto}
 }
 @media print{
-  .bg, body.combo-blaze::before{display:none}
+  .bg{display:none}
 }
 
 button,select,input,textarea{font:inherit;color:inherit}
@@ -863,133 +857,105 @@ textarea::placeholder{color:var(--muted)}
 
 .keyboard{position:relative;margin:0 auto;--u:52px;width:calc(var(--u)*13.6);height:calc(var(--u)*6.15)}
 
-/* ---- keycap: element = skirt (finger-tinted), ::before = top face ---- */
+/* ---- keycap: flat glass tile; ::before = finger wash / target fill, ::after = finger pill ---- */
 .key{
-  --lip:calc(var(--u)*.085);   /* front skirt, ~4.4px at u=52 */
-  --side:calc(var(--u)*.05);   /* side/back skirt, ~2.6px */
-  --r:calc(var(--u)*.14);
-  --travel:calc(var(--u)*.04); /* press depth, ~2px */
+  --r:calc(var(--u)*.2);
   position:absolute;border-radius:var(--r);
-  background:
-    linear-gradient(0deg,var(--tint,transparent) 0,var(--tint,transparent) calc(var(--lip) * .9),transparent calc(var(--lip) * 2.4)),
-    linear-gradient(180deg,var(--key-skirt-hi),var(--key-skirt-lo));
-  border:1px solid var(--key-edge);
-  box-shadow:0 2px 0 -1px var(--key-drop),0 4px 8px -4px var(--key-drop);
+  background:linear-gradient(180deg,var(--key-sheen),transparent 60%),var(--key-bg);
+  border:1px solid var(--key-line);
+  box-shadow:inset 0 1px 0 var(--key-hi),0 1px 2px var(--key-drop);
   display:flex;align-items:center;justify-content:center;
-  padding-bottom:calc(var(--lip) - var(--side)); /* centre legend on the face */
   color:var(--key-text);user-select:none;
-  transform:rotate(var(--rot,0deg));
-  isolation:isolate;
-  transition:border-color .12s,box-shadow .16s;
+  transform:rotate(var(--rot,0deg));isolation:isolate;
+  transition:border-color .14s,box-shadow .18s;
 }
 .key::before{
-  content:"";position:absolute;z-index:-1;pointer-events:none;
-  inset:var(--side) var(--side) var(--lip);
-  border-radius:calc(var(--r) - 2px);
-  background:linear-gradient(180deg,var(--key-top-hi),var(--key-top-lo));
-  box-shadow:inset 0 1px 0 var(--key-hi),0 1px 2px rgba(0,0,0,.28);
+  content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;border-radius:inherit;
+  background:linear-gradient(0deg,var(--tint,transparent),transparent 55%);opacity:.14;
 }
+.kb-heatmap .key::before{opacity:.75}
+.key::after{
+  content:"";position:absolute;z-index:1;pointer-events:none;
+  left:50%;bottom:calc(var(--u)*.075);height:2px;
+  width:calc(var(--u)*.26);margin-left:calc(var(--u)*-.13);
+  border-radius:2px;background:var(--tint,transparent);opacity:.8;transition:opacity .14s;
+}
+/* homing keys: the finger pill itself grows wider instead of a second dash */
+.key:has(.bump)::after{width:calc(var(--u)*.46);margin-left:calc(var(--u)*-.23);opacity:1}
 .key .main{
-  position:relative;z-index:1;line-height:1;font-weight:600;letter-spacing:.01em;
+  position:relative;z-index:1;line-height:1;font-weight:550;letter-spacing:-.005em;
   font-size:clamp(10px,calc(var(--u)*.26),14px);transition:color .12s;
 }
 .key.small .main{font-size:clamp(8px,calc(var(--u)*.2),11px);font-weight:500}
 .key .sub{
-  position:absolute;z-index:1;
-  right:calc(var(--side) + var(--u)*.07);bottom:calc(var(--lip) + var(--u)*.05);
-  font-size:clamp(7px,calc(var(--u)*.165),9px);line-height:1;letter-spacing:.02em;
-  color:var(--key-sub);
+  position:absolute;z-index:1;right:calc(var(--u)*.1);top:calc(var(--u)*.09);
+  font-size:clamp(7px,calc(var(--u)*.165),9px);line-height:1;letter-spacing:.02em;color:var(--key-sub);
 }
-.key .bump{
-  position:absolute;z-index:1;left:50%;bottom:calc(var(--lip) + var(--u)*.1);
-  width:calc(var(--u)*.22);height:2px;margin-left:calc(var(--u)*-.11);
-  border-radius:2px;background:var(--key-bump);
-}
+.key .bump{display:none}
 .key.trns .main{color:var(--key-trns)}
 .key.empty{background:none;border-color:transparent;box-shadow:none}
-.key.empty::before{display:none}
+.key.empty::before,.key.empty::after{display:none}
 
-/* ---- look-ahead: quiet inset ring on the face, accent legend ---- */
-.key.next2{z-index:2}
-.key.next2::before{box-shadow:inset 0 1px 0 var(--key-hi),
-  inset 0 0 0 1.5px rgba(var(--accent-rgb),calc(.42 * var(--kb-fade,1)))}
+/* ---- look-ahead ---- */
+.key.next2{z-index:2;border-color:rgba(var(--accent-rgb),calc(.5 * var(--kb-fade,1)))}
 .key.next2 .main{color:rgba(var(--accent-rgb),calc(.85 * var(--kb-fade,1)))}
 
-/* ---- hold keys (shift / layer): ring + "held" bar along the face bottom ---- */
-.key.hint::before{box-shadow:inset 0 1px 0 var(--key-hi),
-  inset 0 0 0 1.5px rgba(var(--sky-rgb),calc(.5 * var(--kb-fade,1))),
-  inset 0 -3px 0 rgba(var(--sky-rgb),calc(.85 * var(--kb-fade,1)))}
+/* ---- hold keys: tinted hairline + pill widens into a "held" bar ---- */
+.key.hint{border-color:rgba(var(--sky-rgb),calc(.6 * var(--kb-fade,1)))}
+.key.hint::after{background:var(--sky);width:calc(var(--u)*.5);margin-left:calc(var(--u)*-.25);opacity:var(--kb-fade,1)}
 .key.hint .main{color:var(--sky)}
-.key.hint-layer::before{box-shadow:inset 0 1px 0 var(--key-hi),
-  inset 0 0 0 1.5px rgba(var(--warn-rgb),calc(.55 * var(--kb-fade,1))),
-  inset 0 -3px 0 rgba(var(--warn-rgb),calc(.9 * var(--kb-fade,1)))}
+.key.hint-layer{border-color:rgba(var(--warn-rgb),calc(.65 * var(--kb-fade,1)))}
+.key.hint-layer::after{background:var(--warn);width:calc(var(--u)*.5);margin-left:calc(var(--u)*-.25);opacity:var(--kb-fade,1)}
 .key.hint-layer .main{color:var(--warn)}
-.key.hint2::before{box-shadow:inset 0 1px 0 var(--key-hi),
-  inset 0 0 0 1px rgba(var(--sky-rgb),calc(.32 * var(--kb-fade,1)))}
-.key.hint2-layer::before{box-shadow:inset 0 1px 0 var(--key-hi),
-  inset 0 0 0 1px rgba(var(--warn-rgb),calc(.38 * var(--kb-fade,1)))}
+.key.hint2{border-color:rgba(var(--sky-rgb),calc(.32 * var(--kb-fade,1)))}
+.key.hint2-layer{border-color:rgba(var(--warn-rgb),calc(.38 * var(--kb-fade,1)))}
 
-/* ---- target: gap ring (crisp on any cap), warm face, accent legend.
-   Declared after next2/hint so it wins at equal specificity. ---- */
+/* ---- target: solid accent fill + soft halo. After next2/hint so it wins. ---- */
 .key.next{
   z-index:3;border-color:transparent;
-  box-shadow:0 0 0 2px var(--surface-1),
-    0 0 0 4px rgba(var(--accent-rgb),calc(.95 * var(--kb-fade,1))),
-    0 8px 20px -6px rgba(var(--accent-rgb),calc(.5 * var(--kb-fade,1)));
+  box-shadow:0 0 0 3px rgba(var(--accent-rgb),calc(.22 * var(--kb-fade,1))),
+    0 8px 22px -6px rgba(var(--accent-rgb),calc(.6 * var(--kb-fade,1)));
 }
 .key.next::before{
-  background:
-    linear-gradient(180deg,rgba(var(--accent-rgb),.16),rgba(var(--accent-rgb),.05)),
-    linear-gradient(180deg,var(--key-top-hi),var(--key-top-lo));
-  box-shadow:inset 0 1px 0 var(--key-hi);
-  animation:capArrive 180ms cubic-bezier(.2,.9,.3,1.25);
+  background:var(--accent);opacity:var(--kb-fade,1);
+  animation:capArrive 200ms cubic-bezier(.2,.9,.3,1.3);
 }
-.key.next .main{color:var(--accent)}
-.key.next .sub{color:rgba(var(--accent-rgb),.75)}
-/* same key twice: a second, outer ring */
+.key.next::after{opacity:0}
+.key.next .main{color:var(--accent-ink);font-weight:650}
+.key.next .sub{color:var(--accent-ink);opacity:.7}
+.key.next:has(.bump)::after{opacity:.5;background:var(--accent-ink)}
 .key.next.dbl{
   box-shadow:0 0 0 2px var(--surface-1),
-    0 0 0 4px rgba(var(--accent-rgb),calc(.95 * var(--kb-fade,1))),
-    0 0 0 6px var(--surface-1),
-    0 0 0 7.5px rgba(var(--accent-rgb),calc(.5 * var(--kb-fade,1))),
-    0 8px 20px -6px rgba(var(--accent-rgb),calc(.5 * var(--kb-fade,1)));
+    0 0 0 3.5px rgba(var(--accent-rgb),calc(.95 * var(--kb-fade,1))),
+    0 8px 22px -6px rgba(var(--accent-rgb),calc(.6 * var(--kb-fade,1)));
 }
-@keyframes capArrive{from{transform:scale(.9);opacity:.5}to{transform:scale(1);opacity:1}}
+@keyframes capArrive{from{transform:scale(.82);opacity:.35}to{transform:scale(1);opacity:var(--kb-fade,1)}}
 
-/* ---- press feedback: face + legends travel down, colour wash, ring ---- */
+/* ---- press: whole tile dips (individual `scale` composes with rotate) ---- */
 .key.press,.key.burst,.key.flash-bad{z-index:6}
-.key.press::before,.key.press .main,.key.press .sub,.key.press .bump{
-  animation:capPress 140ms cubic-bezier(.2,.8,.3,1);
+.key.press{animation:capPress 150ms cubic-bezier(.2,.8,.3,1)}
+.key.flash-bad{animation:keyNudge 160ms cubic-bezier(.36,.07,.19,.97)}
+.key.press.flash-bad{animation:capPress 150ms cubic-bezier(.2,.8,.3,1),keyNudge 160ms cubic-bezier(.36,.07,.19,.97)}
+@keyframes capPress{0%{scale:1} 35%{scale:.92} 100%{scale:1}}
+@keyframes keyNudge{0%,100%{translate:0} 25%{translate:-2px 0} 75%{translate:2px 0}}
+
+.key .kfx{position:absolute;z-index:0;pointer-events:none;inset:0;border-radius:inherit}
+.key .kfx::before{content:"";position:absolute;inset:0;border-radius:inherit;opacity:0;background:var(--wash,transparent)}
+.key .kfx::after{
+  content:"";position:absolute;inset:-1px;border-radius:var(--r);
+  border:1.5px solid var(--ring,rgba(var(--accent-rgb),.7));opacity:0;
 }
-@keyframes capPress{
-  0%{transform:translateY(0)} 30%{transform:translateY(var(--travel))} 100%{transform:translateY(0)}
-}
-.key .kfx{
-  position:absolute;z-index:0;pointer-events:none;
-  inset:var(--side) var(--side) var(--lip);border-radius:calc(var(--r) - 2px);
-}
-.key .kfx::before{               /* colour wash */
-  content:"";position:absolute;inset:0;border-radius:inherit;opacity:0;
-  background:var(--wash,transparent);
-}
-.key .kfx::after{                /* expanding ring */
-  content:"";position:absolute;inset:-3px;border-radius:calc(var(--r) + 1px);
-  border:2px solid var(--ring,rgba(var(--accent-rgb),.75));opacity:0;
-}
-.key.flash-ok  {--wash:rgba(var(--accent-rgb),.5)}
-.key.flash-key {--wash:rgba(var(--sky-rgb),.4)}
-.key.flash-bad {--wash:rgba(var(--bad-rgb),.6)}
+.key.flash-ok  {--wash:rgba(var(--accent-rgb),.35)}
+.key.flash-key {--wash:rgba(var(--sky-rgb),.3)}
+.key.flash-bad {--wash:rgba(var(--bad-rgb),.5)}
 .key.flash-ok .kfx::before,.key.flash-key .kfx::before{animation:kfxWash 220ms ease-out}
 .key.flash-bad .kfx::before{animation:kfxWash 280ms ease-out}
-.key.flash-bad{animation:keyNudge 160ms cubic-bezier(.36,.07,.19,.97)}
 .key.burst .kfx::after{animation:kfxRing 340ms cubic-bezier(.16,.84,.36,1)}
-@keyframes kfxWash{from{opacity:calc(1 * var(--kb-fade,1))}to{opacity:0}}
+@keyframes kfxWash{from{opacity:var(--kb-fade,1)}to{opacity:0}}
 @keyframes kfxRing{
   0%{opacity:calc(.9 * var(--kb-fade,1));transform:scale(1)}
-  100%{opacity:0;transform:scale(var(--ring-s,1.22))}
+  100%{opacity:0;transform:scale(var(--ring-s,1.2))}
 }
-/* individual `translate` composes with the rotate() in `transform` */
-@keyframes keyNudge{0%,100%{translate:0} 25%{translate:-2px 0} 75%{translate:2px 0}}
 
 /* ============================================================
    Stats bar
@@ -1049,70 +1015,91 @@ textarea::placeholder{color:var(--muted)}
 .combo-stat[data-tier="6"] .combo-heat i{background:var(--accent-2)}
 
 /* ============================================================
-   Combo - heat inside the cap, crisp ring + sparks, static rim
+   Combo - charge inside the tile, crisp ring, shards, sweep
    ============================================================ */
 .key .heat{
-  position:absolute;z-index:0;pointer-events:none;
-  inset:var(--side) var(--side) var(--lip);border-radius:calc(var(--r) - 2px);
-  background:radial-gradient(120% 95% at 50% 118%,var(--heat-hi) 0%,var(--heat-lo) 48%,transparent 82%);
-  box-shadow:0 0 0 1px rgba(var(--accent-2-rgb),.7),0 0 16px rgba(var(--accent-rgb),.42);
-  opacity:0;transition:opacity .52s cubic-bezier(.3,0,.2,1);   /* cool-down */
+  position:absolute;z-index:0;pointer-events:none;inset:0;border-radius:inherit;
+  background:linear-gradient(0deg,var(--heat-hi),var(--heat-lo) 45%,transparent 80%);
+  box-shadow:inset 0 0 0 1px rgba(var(--accent-2-rgb),.65),0 4px 16px -4px rgba(var(--accent-rgb),.5);
+  opacity:0;transition:opacity .45s cubic-bezier(.3,0,.2,1);
 }
-.key .heat::after{               /* white-hot core, tier 5+ */
-  content:"";position:absolute;inset:0;border-radius:inherit;opacity:0;
-  background:radial-gradient(70% 55% at 50% 112%,var(--heat-core),transparent 70%);
+.key .heat::after{                 /* top rim light, tier 5+ */
+  content:"";position:absolute;top:0;left:14%;right:14%;height:1px;opacity:0;
+  background:linear-gradient(90deg,transparent,var(--heat-core),transparent);
   transition:opacity .3s;
 }
 .key[class*="combo-"]{z-index:4}
-.key[class*="combo-"] .heat{transition-duration:.08s}            /* heat-up */
-.key.hot .heat      {opacity:calc(.2  * var(--kb-fade,1))}
-.key.combo-2 .heat  {opacity:calc(.3  * var(--kb-fade,1))}
-.key.combo-3 .heat  {opacity:calc(.45 * var(--kb-fade,1))}
-.key.combo-4 .heat  {opacity:calc(.62 * var(--kb-fade,1))}
-.key.combo-5 .heat  {opacity:calc(.8  * var(--kb-fade,1))}
-.key.combo-6 .heat  {opacity:calc(.95 * var(--kb-fade,1))}
-.key.combo-5 .heat::after{opacity:.55}
+.key[class*="combo-"] .heat{transition-duration:.08s}
+.key.hot .heat     {opacity:calc(.18 * var(--kb-fade,1))}
+.key.combo-2 .heat {opacity:calc(.3  * var(--kb-fade,1))}
+.key.combo-3 .heat {opacity:calc(.45 * var(--kb-fade,1))}
+.key.combo-4 .heat {opacity:calc(.62 * var(--kb-fade,1))}
+.key.combo-5 .heat {opacity:calc(.8  * var(--kb-fade,1))}
+.key.combo-6 .heat {opacity:var(--kb-fade,1)}
+.key.combo-5 .heat::after{opacity:.6}
 .key.combo-6 .heat::after{opacity:1}
-.key.combo-3 .main,.key.combo-4 .main{color:var(--correct)}
-.key.combo-5 .main,.key.combo-6 .main{color:var(--heat-legend)}
-
-/* ring escalation */
-.key.combo-2,.key.combo-3{--ring:rgba(var(--accent-2-rgb),.85)}
-.key.combo-4,.key.combo-5{--ring:var(--accent-2);--ring-s:1.3}
-.key.combo-6{--ring:var(--accent-2);--ring-s:1.42}
-.key.combo-4 .kfx::after,.key.combo-5 .kfx::after,.key.combo-6 .kfx::after{
-  box-shadow:0 0 0 3px rgba(var(--accent-2-rgb),.2),0 0 12px rgba(var(--accent-2-rgb),.35);
-}
+.key.combo-3 .main{color:var(--correct)}
+.key.combo-4 .main,.key.combo-5 .main{color:var(--accent-2)}
+.key.combo-6 .main{color:var(--heat-legend)}
+.key.next[class*="combo-"] .main{color:var(--accent-ink)}
+.key.combo-2,.key.combo-3{--ring:rgba(var(--accent-2-rgb),.8)}
+.key.combo-4,.key.combo-5{--ring:var(--accent-2);--ring-s:1.28}
+.key.combo-6{--ring:var(--accent-2);--ring-s:1.4}
 .key.combo-6.burst .kfx::after{animation-duration:420ms}
-
-/* a miss always reads as a miss, even on a heated key */
 .key.flash-bad .main{color:var(--bad)}
 
-/* sparks: pooled thin streaks shot out from the key edge */
+/* shards */
 .emberlayer{position:absolute;inset:0;z-index:7;pointer-events:none;overflow:visible}
 .emberlayer .spark{
-  position:absolute;left:0;top:0;height:2px;width:var(--sl,10px);border-radius:1px;
-  background:linear-gradient(90deg,transparent,var(--spark-a) 45%,var(--spark-b));
+  position:absolute;left:0;top:0;height:2px;width:var(--sl,6px);border-radius:2px;
+  background:linear-gradient(90deg,transparent,var(--spark-a) 40%,var(--spark-b));
   transform-origin:0 50%;opacity:0;
-  animation:sparkFly var(--sd,380ms) cubic-bezier(.15,.7,.3,1) forwards;
+  animation:sparkFly var(--sd,340ms) cubic-bezier(.15,.7,.3,1) forwards;
 }
 @keyframes sparkFly{
-  0%  {opacity:calc(1 * var(--kb-fade,1));
-       transform:translate(var(--ex),var(--ey)) rotate(var(--sa)) translateX(var(--s0)) scaleX(1)}
-  100%{opacity:0;
-       transform:translate(var(--ex),var(--ey)) rotate(var(--sa)) translateX(var(--s1)) scaleX(.25)}
+  0%  {opacity:var(--kb-fade,1);transform:translate(var(--ex),var(--ey)) rotate(var(--sa)) translateX(var(--s0)) scaleX(1)}
+  100%{opacity:0;transform:translate(var(--ex),var(--ey)) rotate(var(--sa)) translateX(var(--s1)) scaleX(.2)}
 }
 
-/* rim: static shadow, no blur pass, no infinite animation */
+/* milestone sweep (pooled, one node in #kbWrap) */
+.kbsweep{position:absolute;inset:0;z-index:8;pointer-events:none;overflow:hidden;border-radius:inherit;opacity:0}
+.kbsweep::before{
+  content:"";position:absolute;top:-20%;bottom:-20%;left:0;width:32%;
+  background:linear-gradient(90deg,transparent 0%,var(--sweep) 30%,var(--sweep-core) 50%,var(--sweep) 70%,transparent 100%);
+  transform:translateX(-120%) skewX(-14deg);
+}
+.kbsweep.go{animation:sweepFade 700ms ease-out}
+.kbsweep.go::before{animation:sweepMove 700ms cubic-bezier(.45,0,.2,1)}
+.kbsweep.big::before{width:46%}
+@keyframes sweepFade{0%,70%{opacity:var(--kb-fade,1)}100%{opacity:0}}
+@keyframes sweepMove{from{transform:translateX(-120%) skewX(-14deg)}to{transform:translateX(420%) skewX(-14deg)}}
+
+/* rim */
 .kbcard{transition:box-shadow .4s ease}
-body.combo-blaze .kbcard{box-shadow:inset 0 1px 0 var(--surface-hi),
-  0 0 0 1px rgba(var(--accent-rgb),.22),0 0 32px -6px rgba(var(--accent-rgb),.28)}
-body.combo-max .kbcard{box-shadow:inset 0 1px 0 var(--surface-hi),
-  0 0 0 1px rgba(var(--accent-2-rgb),.4),0 0 48px -4px rgba(var(--accent-2-rgb),.34)}
+body.combo-blaze .kbcard{box-shadow:inset 0 1px 0 var(--surface-hi),0 0 0 1px rgba(var(--accent-rgb),.2),0 0 28px -8px rgba(var(--accent-rgb),.25)}
+body.combo-max .kbcard{box-shadow:inset 0 1px 0 var(--surface-hi),0 0 0 1px rgba(var(--accent-2-rgb),.38),0 0 40px -6px rgba(var(--accent-2-rgb),.3)}
+
+/* HUD: per-hit tick, tier/milestone pop, break shake + ghost */
+.combo-stat{position:relative}
+#sCombo{display:inline-block;transform-origin:0 80%}
+.combo-stat.pop-a #sCombo{animation:comboPopA 140ms ease-out}
+.combo-stat.pop-b #sCombo{animation:comboPopB 140ms ease-out}
+.combo-stat.pop-big #sCombo{animation:comboPopBig 460ms cubic-bezier(.2,1.5,.4,1)}
+@keyframes comboPopA{from{transform:scale(1.09)}to{transform:scale(1)}}
+@keyframes comboPopB{from{transform:scale(1.09)}to{transform:scale(1)}}
+@keyframes comboPopBig{0%{transform:scale(1)} 25%{transform:scale(1.42)} 100%{transform:scale(1)}}
+.combo-stat.broke b{animation:comboBreakNudge 240ms cubic-bezier(.36,.07,.19,.97)}
+@keyframes comboBreakNudge{0%,100%{transform:translateX(0)} 25%{transform:translateX(-3px)} 75%{transform:translateX(3px)}}
+.combo-ghost{
+  position:absolute;right:var(--s4);top:14px;pointer-events:none;opacity:0;
+  font-style:normal;font-size:var(--fs-20);font-weight:650;font-variant-numeric:tabular-nums;color:var(--bad);
+}
+.combo-stat.broke .combo-ghost{animation:comboGhost 620ms cubic-bezier(.2,.7,.3,1)}
+@keyframes comboGhost{0%{opacity:.9;transform:translateY(0)} 100%{opacity:0;transform:translateY(-9px) scale(.92)}}
 
 @media (prefers-reduced-motion: reduce){
-  .key::before,.key .main,.key .sub,.key .bump,.key.flash-bad{animation:none !important}
-  .key .kfx::after,.emberlayer{display:none}
+  .key,.key::before,.key.press,.key.flash-bad,#sCombo,.combo-stat b{animation:none !important}
+  .key .kfx::after,.emberlayer,.kbsweep,.combo-ghost{display:none}
   .key .heat,.key[class*="combo-"] .heat{transition-duration:.15s}
 }
 
@@ -2316,8 +2303,8 @@ function fingerTint(finger, alpha){
   if (!rgb) return 'transparent';
   return 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',' + (alpha === undefined ? 0.15 : alpha) + ')';
 }
-/* finger colour now lives on the thin keycap skirt, so it needs more alpha */
-var KEY_TINT_ALPHA = 0.4;
+/* finger colour: saturated pill; the face wash scales it down via CSS opacity */
+var KEY_TINT_ALPHA = 0.85;
 
 /* Re-add a one-shot animation class, restarting it if it is still running. */
 function restartClass(el, cls){
@@ -4324,6 +4311,8 @@ function keyAvgMs(mr, mc){
 function applyHeat(){
   if (!app.keyEls) return;
   var mode = app.settings.heatmapMode;
+  var kbEl = $('#keyboard');
+  if (kbEl) kbEl.classList.toggle('kb-heatmap', mode !== 'off');
   app.keyEls.forEach(function(el, key){
     var parts = key.split(',');
     var mr = +parts[0], mc = +parts[1];
@@ -5443,7 +5432,7 @@ function updateHud(){
 }
 
 /* ---- combo counter: state, tiers, heat, pooled embers ---- */
-var COMBO_EMBER_CAP = 18;
+var COMBO_EMBER_CAP = 24;
 var COMBO_HOT_CAP = 3;
 var COMBO_FIRE_MS = 460;
 var COMBO_TIER_CLASSES = ['combo-1', 'combo-2', 'combo-3', 'combo-4', 'combo-5', 'combo-6'];
@@ -5460,7 +5449,7 @@ function prefersReducedMotion(){
   catch(e){ return false; }
 }
 
-/* 1: 0–9 · 2: 10–24 · 3: 25–49 · 4: 50–99 · 5: 100–199 · 6: 200+ */
+/* 1: 0–4 · 2: 5–11 · 3: 12–24 · 4: 25–59 · 5: 60–119 · 6: 120+ */
 function comboTier(n){
   if (n >= 120) return 6;
   if (n >= 60) return 5;
@@ -5552,11 +5541,12 @@ function cacheComboKeyGeom(){
   });
 }
 
+/* restrained per hit; milestones fire the big ring burst */
 function comboSparkCount(tier){
-  if (tier >= 6) return 6;
-  if (tier === 5) return 4;
-  if (tier === 4) return 3;
-  if (tier === 3) return 2;
+  if (tier >= 6) return 4;
+  if (tier === 5) return 3;
+  if (tier === 4) return 2;
+  if (tier === 3) return 1;
   return 0;
 }
 
@@ -5579,14 +5569,14 @@ function comboEmberDone(ev){
   if (comboEmberFree.indexOf(node) === -1) comboEmberFree.push(node);
 }
 
-function spawnComboSparks(el, count){
+function spawnComboSparks(el, count, ring){
   var layer = app.emberLayer;
   if (!layer || !el || count <= 0) return;
   if (prefersReducedMotion() || (app.settings.comboFx || 'full') !== 'full') return;
   var g = el.__cg;
   if (!g) return;
-  var cx = g.x + g.w / 2, cy = g.y + (g.h - g.h * 0.085) / 2;   /* face centre */
-  var r0 = Math.min(g.w, g.h) * 0.46;
+  var cx = g.x + g.w / 2, cy = g.y + g.h / 2;
+  var r0 = Math.min(g.w, g.h) * (ring ? 0.5 : 0.46);
   for (var i = 0; i < count && comboEmbersLive < COMBO_EMBER_CAP; i++){
     var e = comboEmberFree.pop();
     if (!e){
@@ -5597,14 +5587,15 @@ function spawnComboSparks(el, count){
       comboEmberPool.push(e);
     }
     var t = count > 1 ? i / (count - 1) - 0.5 : 0;
-    var ang = -90 + t * 150 + (rand(25) - 12);                   /* fan upward */
+    var ang = ring ? (i / count) * 360 + (rand(21) - 10)          /* full ring */
+                   : -90 + t * 120 + (rand(21) - 10);              /* fan upward */
     e.style.setProperty('--ex', cx.toFixed(1) + 'px');
     e.style.setProperty('--ey', cy.toFixed(1) + 'px');
     e.style.setProperty('--sa', ang + 'deg');
     e.style.setProperty('--s0', r0.toFixed(1) + 'px');
-    e.style.setProperty('--s1', (r0 + 14 + rand(11)) + 'px');
-    e.style.setProperty('--sl', (7 + rand(7)) + 'px');
-    e.style.setProperty('--sd', (340 + rand(101)) + 'ms');
+    e.style.setProperty('--s1', (r0 + (ring ? 26 + rand(18) : 10 + rand(9))) + 'px');
+    e.style.setProperty('--sl', (ring ? 8 + rand(8) : 4 + rand(5)) + 'px');
+    e.style.setProperty('--sd', (ring ? 520 + rand(160) : 300 + rand(80)) + 'ms');
     layer.appendChild(e);
     comboEmbersLive++;
   }
@@ -5685,10 +5676,56 @@ function comboHeatTick(){
   }
 }
 
+var comboPopFlip = false;
+function comboStatEl(){
+  var stat = $('#comboStat');
+  if (!stat) return null;
+  if (!stat.__fx){
+    stat.__fx = true;
+    var g = document.createElement('i');
+    g.className = 'combo-ghost';
+    g.setAttribute('aria-hidden', 'true');
+    stat.appendChild(g);
+    stat.__ghost = g;
+    stat.addEventListener('animationend', function(e){
+      if (e.animationName === 'comboPopBig') stat.classList.remove('pop-big');
+      else if (e.animationName === 'comboGhost') stat.classList.remove('broke');
+    });
+  }
+  return stat;
+}
+function comboPop(big){
+  var stat = comboStatEl();
+  if (!stat || prefersReducedMotion() || (app.settings.comboFx || 'full') === 'off') return;
+  if (big){ stat.classList.remove('pop-a', 'pop-b'); restartClass(stat, 'pop-big'); return; }
+  if (stat.classList.contains('pop-big')) return;
+  comboPopFlip = !comboPopFlip;   /* swap A/B names: restart without a forced reflow */
+  stat.classList.remove(comboPopFlip ? 'pop-b' : 'pop-a');
+  stat.classList.add(comboPopFlip ? 'pop-a' : 'pop-b');
+}
+function comboSweep(big){
+  var wrap = $('#kbWrap');
+  if (!wrap) return;
+  var sw = app.kbSweep;
+  if (!sw || sw.parentNode !== wrap){
+    sw = document.createElement('div');
+    sw.className = 'kbsweep';
+    sw.setAttribute('aria-hidden', 'true');
+    sw.addEventListener('animationend', function(e){
+      if (e.animationName === 'sweepFade') sw.classList.remove('go', 'big');
+    });
+    wrap.appendChild(sw);
+    app.kbSweep = sw;
+  }
+  sw.classList.toggle('big', !!big);
+  restartClass(sw, 'go');
+}
+
 function comboHud(){
   var stat = $('#comboStat');
   if (!stat) return;
   var tier = comboTier(app.combo);
+  var prevTier = +stat.getAttribute('data-tier') || 1;
   stat.classList.toggle('hidden', app.settings.showCombo === false);
   stat.classList.toggle('is-zero', app.combo === 0);
   stat.setAttribute('data-tier', String(tier));
@@ -5696,6 +5733,7 @@ function comboHud(){
   if (num) num.textContent = app.combo;
   var best = $('#sBestCombo');
   if (best) best.textContent = 'best ×' + app.bestCombo;
+  if (app.combo > 0) comboPop(tier > prevTier);   /* tick every hit, big on tier-up */
 }
 
 function comboMilestone(){
@@ -5703,8 +5741,13 @@ function comboMilestone(){
   var big = n >= 100 && n % 100 === 0;
   if (n !== 10 && n !== 25 && n !== 50 && !big) return;
   Sound.combo(big);
+  comboPop(true);
+  if ((app.settings.comboFx || 'full') === 'full' && !prefersReducedMotion()){
+    comboSweep(big);
+    spawnComboSparks(app.comboKeyEl, big ? 14 : (n >= 50 ? 10 : 8), true);
+  }
   if (n === 50 || big){
-    toast('Combo ×' + n + (big ? ' 🔥' : ''), false, { duration: big ? 3200 : 2600 });
+    toast('Combo ×' + n, false, { duration: big ? 3200 : 2600 });
   }
 }
 
@@ -5720,11 +5763,16 @@ function comboHit(el){
 }
 
 function comboBreak(){
+  var lost = app.combo;
   app.combo = 0;
   app.lastComboKeyAt = 0;
   clearComboKey();
   comboHud();
   comboHeatSet(0, false);
+  if (lost >= 10 && (app.settings.comboFx || 'full') !== 'off' && !prefersReducedMotion()){
+    var stat = comboStatEl();
+    if (stat){ stat.__ghost.textContent = '×' + lost; restartClass(stat, 'broke'); }
+  }
 }
 
 function resetComboRun(){
