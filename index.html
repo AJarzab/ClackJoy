@@ -67,6 +67,14 @@
   --key-trns:#6b7079;
   --key-shadow:rgba(0,0,0,.5);
   --key-inset:rgba(255,255,255,.045);
+  --key-skirt-hi:#1c1d20;--key-skirt-lo:#111214;
+  --key-top-hi:#2a2b2f;--key-top-lo:#1f2023;
+  --key-edge:rgba(255,255,255,.07);
+  --key-hi:rgba(255,255,255,.075);
+  --key-drop:rgba(0,0,0,.6);
+  --heat-hi:rgba(255,176,32,.95);--heat-lo:rgba(255,138,43,.5);
+  --heat-core:rgba(255,246,220,.9);--heat-legend:#fff3e0;
+  --spark-a:#ffb020;--spark-b:#fff4de;
 
   --track:#2a2d31;
   --input-bg:#101113;
@@ -202,6 +210,14 @@
   --key-trns:#a49d94;
   --key-shadow:rgba(21,19,18,.07);
   --key-inset:rgba(255,255,255,.9);
+  --key-skirt-hi:#e3ded7;--key-skirt-lo:#d2cbc1;
+  --key-top-hi:#fdfcfa;--key-top-lo:#f0ece6;
+  --key-edge:rgba(40,30,20,.13);
+  --key-hi:rgba(255,255,255,.95);
+  --key-drop:rgba(40,30,20,.16);
+  --heat-hi:rgba(234,88,12,.42);--heat-lo:rgba(234,88,12,.15);
+  --heat-core:rgba(255,255,255,.75);--heat-legend:#7c2d12;
+  --spark-a:#c2410c;--spark-b:#f59e0b;
 
   --track:#e8e4de;
   --input-bg:#fbfaf8;
@@ -330,6 +346,14 @@
     --key-trns:#a49d94;
     --key-shadow:rgba(21,19,18,.07);
     --key-inset:rgba(255,255,255,.9);
+    --key-skirt-hi:#e3ded7;--key-skirt-lo:#d2cbc1;
+    --key-top-hi:#fdfcfa;--key-top-lo:#f0ece6;
+    --key-edge:rgba(40,30,20,.13);
+    --key-hi:rgba(255,255,255,.95);
+    --key-drop:rgba(40,30,20,.16);
+    --heat-hi:rgba(234,88,12,.42);--heat-lo:rgba(234,88,12,.15);
+    --heat-core:rgba(255,255,255,.75);--heat-legend:#7c2d12;
+    --spark-a:#c2410c;--spark-b:#f59e0b;
     --track:#e8e4de;
     --input-bg:#fbfaf8;
     --pill-bg:#f1eee9;
@@ -839,73 +863,133 @@ textarea::placeholder{color:var(--muted)}
 
 .keyboard{position:relative;margin:0 auto;--u:52px;width:calc(var(--u)*13.6);height:calc(var(--u)*6.15)}
 
-/* ---- keys: neutral surface, finger colour as a 3px bottom strip ---- */
+/* ---- keycap: element = skirt (finger-tinted), ::before = top face ---- */
 .key{
-  position:absolute;border-radius:calc(var(--u)*.12);
-  background-color:var(--key-bg);
-  background-image:linear-gradient(0deg,var(--tint,transparent),var(--tint,transparent));
-  background-size:100% 3px;background-position:bottom;background-repeat:no-repeat;
-  border:1px solid var(--key-line);
-  box-shadow:0 1px 0 var(--key-shadow),inset 0 1px 0 var(--key-inset);
+  --lip:calc(var(--u)*.085);   /* front skirt, ~4.4px at u=52 */
+  --side:calc(var(--u)*.05);   /* side/back skirt, ~2.6px */
+  --r:calc(var(--u)*.14);
+  --travel:calc(var(--u)*.04); /* press depth, ~2px */
+  position:absolute;border-radius:var(--r);
+  background:
+    linear-gradient(0deg,var(--tint,transparent) 0,var(--tint,transparent) calc(var(--lip) * .9),transparent calc(var(--lip) * 2.4)),
+    linear-gradient(180deg,var(--key-skirt-hi),var(--key-skirt-lo));
+  border:1px solid var(--key-edge);
+  box-shadow:0 2px 0 -1px var(--key-drop),0 4px 8px -4px var(--key-drop);
   display:flex;align-items:center;justify-content:center;
+  padding-bottom:calc(var(--lip) - var(--side)); /* centre legend on the face */
   color:var(--key-text);user-select:none;
   transform:rotate(var(--rot,0deg));
-  transition:background-color .14s,box-shadow .14s,border-color .14s,color .14s;
-  will-change:background-color;
+  isolation:isolate;
+  transition:border-color .12s,box-shadow .16s;
 }
-.key .main{font-size:clamp(9px,calc(var(--u)*.25),13px);line-height:1;font-weight:600}
+.key::before{
+  content:"";position:absolute;z-index:-1;pointer-events:none;
+  inset:var(--side) var(--side) var(--lip);
+  border-radius:calc(var(--r) - 2px);
+  background:linear-gradient(180deg,var(--key-top-hi),var(--key-top-lo));
+  box-shadow:inset 0 1px 0 var(--key-hi),0 1px 2px rgba(0,0,0,.28);
+}
+.key .main{
+  position:relative;z-index:1;line-height:1;font-weight:600;letter-spacing:.01em;
+  font-size:clamp(10px,calc(var(--u)*.26),14px);transition:color .12s;
+}
 .key.small .main{font-size:clamp(8px,calc(var(--u)*.2),11px);font-weight:500}
 .key .sub{
-  position:absolute;right:calc(var(--u)*.09);bottom:calc(var(--u)*.06);
-  font-size:clamp(7px,calc(var(--u)*.173),9px);line-height:1;
-  color:var(--key-sub);letter-spacing:.02em;
+  position:absolute;z-index:1;
+  right:calc(var(--side) + var(--u)*.07);bottom:calc(var(--lip) + var(--u)*.05);
+  font-size:clamp(7px,calc(var(--u)*.165),9px);line-height:1;letter-spacing:.02em;
+  color:var(--key-sub);
 }
 .key .bump{
-  position:absolute;bottom:calc(var(--u)*.16);left:50%;transform:translateX(-50%);
-  width:calc(var(--u)*.2);height:2px;border-radius:2px;background:var(--key-bump);
+  position:absolute;z-index:1;left:50%;bottom:calc(var(--lip) + var(--u)*.1);
+  width:calc(var(--u)*.22);height:2px;margin-left:calc(var(--u)*-.11);
+  border-radius:2px;background:var(--key-bump);
 }
 .key.trns .main{color:var(--key-trns)}
-.key.empty{background:transparent;background-image:none;border-color:transparent;box-shadow:none}
+.key.empty{background:none;border-color:transparent;box-shadow:none}
+.key.empty::before{display:none}
 
-/* next key: 2px orange ring + soft glow */
+/* ---- look-ahead: quiet inset ring on the face, accent legend ---- */
+.key.next2{z-index:2}
+.key.next2::before{box-shadow:inset 0 1px 0 var(--key-hi),
+  inset 0 0 0 1.5px rgba(var(--accent-rgb),calc(.42 * var(--kb-fade,1)))}
+.key.next2 .main{color:rgba(var(--accent-rgb),calc(.85 * var(--kb-fade,1)))}
+
+/* ---- hold keys (shift / layer): ring + "held" bar along the face bottom ---- */
+.key.hint::before{box-shadow:inset 0 1px 0 var(--key-hi),
+  inset 0 0 0 1.5px rgba(var(--sky-rgb),calc(.5 * var(--kb-fade,1))),
+  inset 0 -3px 0 rgba(var(--sky-rgb),calc(.85 * var(--kb-fade,1)))}
+.key.hint .main{color:var(--sky)}
+.key.hint-layer::before{box-shadow:inset 0 1px 0 var(--key-hi),
+  inset 0 0 0 1.5px rgba(var(--warn-rgb),calc(.55 * var(--kb-fade,1))),
+  inset 0 -3px 0 rgba(var(--warn-rgb),calc(.9 * var(--kb-fade,1)))}
+.key.hint-layer .main{color:var(--warn)}
+.key.hint2::before{box-shadow:inset 0 1px 0 var(--key-hi),
+  inset 0 0 0 1px rgba(var(--sky-rgb),calc(.32 * var(--kb-fade,1)))}
+.key.hint2-layer::before{box-shadow:inset 0 1px 0 var(--key-hi),
+  inset 0 0 0 1px rgba(var(--warn-rgb),calc(.38 * var(--kb-fade,1)))}
+
+/* ---- target: gap ring (crisp on any cap), warm face, accent legend.
+   Declared after next2/hint so it wins at equal specificity. ---- */
 .key.next{
-  background-color:var(--key-bg);
-  background-image:linear-gradient(0deg,var(--accent),var(--accent));
-  border-color:var(--accent);color:var(--text);
-  box-shadow:0 0 0 2px rgba(var(--accent-rgb),calc(.9 * var(--kb-fade,1))),
-             0 0 26px rgba(var(--accent-rgb),calc(.28 * var(--kb-fade,1)));
-  z-index:3;
+  z-index:3;border-color:transparent;
+  box-shadow:0 0 0 2px var(--surface-1),
+    0 0 0 4px rgba(var(--accent-rgb),calc(.95 * var(--kb-fade,1))),
+    0 8px 20px -6px rgba(var(--accent-rgb),calc(.5 * var(--kb-fade,1)));
 }
-.key.next .main,.key.next .sub{color:var(--text)}
-.key.next .main,.key.next .sub{color:var(--accent-ink);opacity:.94}
-/* second-next key: 1px dashed muted ring, no glow */
-.key.next2{
-  background-color:var(--key-bg);
-  border:1px solid var(--line-2);color:var(--text-2);
-  box-shadow:none;z-index:2;
+.key.next::before{
+  background:
+    linear-gradient(180deg,rgba(var(--accent-rgb),.16),rgba(var(--accent-rgb),.05)),
+    linear-gradient(180deg,var(--key-top-hi),var(--key-top-lo));
+  box-shadow:inset 0 1px 0 var(--key-hi);
+  animation:capArrive 180ms cubic-bezier(.2,.9,.3,1.25);
 }
+.key.next .main{color:var(--accent)}
+.key.next .sub{color:rgba(var(--accent-rgb),.75)}
+/* same key twice: a second, outer ring */
+.key.next.dbl{
+  box-shadow:0 0 0 2px var(--surface-1),
+    0 0 0 4px rgba(var(--accent-rgb),calc(.95 * var(--kb-fade,1))),
+    0 0 0 6px var(--surface-1),
+    0 0 0 7.5px rgba(var(--accent-rgb),calc(.5 * var(--kb-fade,1))),
+    0 8px 20px -6px rgba(var(--accent-rgb),calc(.5 * var(--kb-fade,1)));
+}
+@keyframes capArrive{from{transform:scale(.9);opacity:.5}to{transform:scale(1);opacity:1}}
 
-/* the current key wins over the look-ahead ring when both point at the same key */
-.key.next.next2{
-  border:1px solid var(--accent);
-  box-shadow:0 0 0 2px rgba(var(--accent-rgb),calc(.85 * var(--kb-fade,1))),
-             0 0 22px rgba(var(--accent-rgb),calc(.22 * var(--kb-fade,1)));
+/* ---- press feedback: face + legends travel down, colour wash, ring ---- */
+.key.press,.key.burst,.key.flash-bad{z-index:6}
+.key.press::before,.key.press .main,.key.press .sub,.key.press .bump{
+  animation:capPress 140ms cubic-bezier(.2,.8,.3,1);
 }
-.key.next.next2::after{display:none}
-.key.next.dbl::after{display:none}
-.key.dbl::after{
-  content:"×2";position:absolute;top:calc(var(--u)*.03);right:calc(var(--u)*.05);
-  font-size:clamp(6px,calc(var(--u)*.14),7.5px);line-height:1.3;font-weight:700;
-  color:var(--accent-ink);background:var(--accent);border-radius:3px;padding:0 2px;opacity:.9;
+@keyframes capPress{
+  0%{transform:translateY(0)} 30%{transform:translateY(var(--travel))} 100%{transform:translateY(0)}
 }
-.key.hint2,.key.hint2-layer,.key.hint,.key.hint-layer{box-shadow:0 0 0 1px rgba(var(--accent-rgb),calc(.28 * var(--kb-fade,1)))}
-.key.hint2{border-color:rgba(var(--sky-rgb),calc(.45 * var(--kb-fade,1)))}
-.key.hint2-layer{border-color:rgba(var(--warn-rgb),calc(.55 * var(--kb-fade,1)))}
-.key.hint{border-color:rgba(var(--sky-rgb),calc(.6 * var(--kb-fade,1)))}
-.key.hint-layer{border-color:rgba(var(--warn-rgb),calc(.65 * var(--kb-fade,1)))}
-.key.flash-ok{background-color:rgba(var(--accent-rgb),calc(.55 * var(--kb-fade,1)));border-color:var(--accent)}
-.key.flash-bad{background-color:rgba(var(--bad-rgb),calc(.55 * var(--kb-fade,1)));border-color:var(--bad)}
-.key.flash-key{background-color:rgba(var(--sky-rgb),calc(.4 * var(--kb-fade,1)));border-color:var(--sky)}
+.key .kfx{
+  position:absolute;z-index:0;pointer-events:none;
+  inset:var(--side) var(--side) var(--lip);border-radius:calc(var(--r) - 2px);
+}
+.key .kfx::before{               /* colour wash */
+  content:"";position:absolute;inset:0;border-radius:inherit;opacity:0;
+  background:var(--wash,transparent);
+}
+.key .kfx::after{                /* expanding ring */
+  content:"";position:absolute;inset:-3px;border-radius:calc(var(--r) + 1px);
+  border:2px solid var(--ring,rgba(var(--accent-rgb),.75));opacity:0;
+}
+.key.flash-ok  {--wash:rgba(var(--accent-rgb),.5)}
+.key.flash-key {--wash:rgba(var(--sky-rgb),.4)}
+.key.flash-bad {--wash:rgba(var(--bad-rgb),.6)}
+.key.flash-ok .kfx::before,.key.flash-key .kfx::before{animation:kfxWash 220ms ease-out}
+.key.flash-bad .kfx::before{animation:kfxWash 280ms ease-out}
+.key.flash-bad{animation:keyNudge 160ms cubic-bezier(.36,.07,.19,.97)}
+.key.burst .kfx::after{animation:kfxRing 340ms cubic-bezier(.16,.84,.36,1)}
+@keyframes kfxWash{from{opacity:calc(1 * var(--kb-fade,1))}to{opacity:0}}
+@keyframes kfxRing{
+  0%{opacity:calc(.9 * var(--kb-fade,1));transform:scale(1)}
+  100%{opacity:0;transform:scale(var(--ring-s,1.22))}
+}
+/* individual `translate` composes with the rotate() in `transform` */
+@keyframes keyNudge{0%,100%{translate:0} 25%{translate:-2px 0} 75%{translate:2px 0}}
 
 /* ============================================================
    Stats bar
@@ -965,202 +1049,71 @@ textarea::placeholder{color:var(--muted)}
 .combo-stat[data-tier="6"] .combo-heat i{background:var(--accent-2)}
 
 /* ============================================================
-   Combo effects — per-press burst, layered fire, embers, rim
+   Combo - heat inside the cap, crisp ring + sparks, static rim
    ============================================================ */
-
-/* ---- 1. per-press burst: one crisp ring on every correct key ---- */
-@keyframes comboPress{
-  0%{transform:rotate(var(--rot,0deg)) translateY(1px) scale(.985);filter:brightness(1.15)}
-  100%{transform:rotate(var(--rot,0deg)) translateY(0) scale(1);filter:brightness(1)}
+.key .heat{
+  position:absolute;z-index:0;pointer-events:none;
+  inset:var(--side) var(--side) var(--lip);border-radius:calc(var(--r) - 2px);
+  background:radial-gradient(120% 95% at 50% 118%,var(--heat-hi) 0%,var(--heat-lo) 48%,transparent 82%);
+  box-shadow:0 0 0 1px rgba(var(--accent-2-rgb),.7),0 0 16px rgba(var(--accent-rgb),.42);
+  opacity:0;transition:opacity .52s cubic-bezier(.3,0,.2,1);   /* cool-down */
 }
-@keyframes comboRing{
-  0%{opacity:1;transform:scale(1);
-    box-shadow:0 0 0 0 rgba(var(--accent-2-rgb),.65),
-      0 0 14px 2px rgba(var(--accent-rgb),.4)}
-  40%{opacity:.85;
-    box-shadow:0 0 0 6px rgba(var(--accent-2-rgb),.4),
-      0 0 18px 3px rgba(var(--accent-rgb),.22)}
-  100%{opacity:0;transform:scale(1.06);
-    box-shadow:0 0 0 10px rgba(var(--accent-2-rgb),0),
-      0 0 20px 4px rgba(var(--accent-rgb),0)}
-}
-.key .burst-ring{
-  position:absolute;inset:-2px;border-radius:inherit;pointer-events:none;
-  z-index:3;opacity:0;
-}
-.key.burst{z-index:6;border-color:rgba(var(--accent-2-rgb),.9);
-  animation:comboPress 90ms ease-out}
-.key.burst .burst-ring{
-  will-change:transform,opacity;
-  animation:comboRing 380ms cubic-bezier(.16,.84,.36,1) forwards;
+.key .heat::after{               /* white-hot core, tier 5+ */
+  content:"";position:absolute;inset:0;border-radius:inherit;opacity:0;
+  background:radial-gradient(70% 55% at 50% 112%,var(--heat-core),transparent 70%);
+  transition:opacity .3s;
 }
 .key[class*="combo-"]{z-index:4}
+.key[class*="combo-"] .heat{transition-duration:.08s}            /* heat-up */
+.key.hot .heat      {opacity:calc(.2  * var(--kb-fade,1))}
+.key.combo-2 .heat  {opacity:calc(.3  * var(--kb-fade,1))}
+.key.combo-3 .heat  {opacity:calc(.45 * var(--kb-fade,1))}
+.key.combo-4 .heat  {opacity:calc(.62 * var(--kb-fade,1))}
+.key.combo-5 .heat  {opacity:calc(.8  * var(--kb-fade,1))}
+.key.combo-6 .heat  {opacity:calc(.95 * var(--kb-fade,1))}
+.key.combo-5 .heat::after{opacity:.55}
+.key.combo-6 .heat::after{opacity:1}
+.key.combo-3 .main,.key.combo-4 .main{color:var(--correct)}
+.key.combo-5 .main,.key.combo-6 .main{color:var(--heat-legend)}
 
-/* ---- 2. flame: three stacked, screen-blended layers ----
-   fl1 = three irregular tongues (2 px blur), fl2 = white-hot core
-   (5 px), fl3 = deep ember halo (9 px). Only one key carries .fire.on
-   at a time; the previous key is demoted to .hot. */
-.key .fire{
-  position:absolute;left:50%;bottom:100%;width:150%;height:150%;
-  transform:translateX(-50%);
-  pointer-events:none;z-index:0;overflow:visible;
-  opacity:0;transition:opacity .18s ease-out;
-  --heat:.3;
+/* ring escalation */
+.key.combo-2,.key.combo-3{--ring:rgba(var(--accent-2-rgb),.85)}
+.key.combo-4,.key.combo-5{--ring:var(--accent-2);--ring-s:1.3}
+.key.combo-6{--ring:var(--accent-2);--ring-s:1.42}
+.key.combo-4 .kfx::after,.key.combo-5 .kfx::after,.key.combo-6 .kfx::after{
+  box-shadow:0 0 0 3px rgba(var(--accent-2-rgb),.2),0 0 12px rgba(var(--accent-2-rgb),.35);
 }
-.key .fire.on{opacity:calc((.55 + .45 * var(--heat)) * var(--kb-fade,1))}
-.key .fire > span{
-  position:absolute;left:50%;bottom:0;transform-origin:50% 100%;
-  pointer-events:none;mix-blend-mode:screen;
-}
-.key .fire .fl1 i{display:none}
-/* inner white-hot core */
-.key .fire .fl1{
-  width:34%;height:calc(56% + 34% * var(--heat));
-  transform:translateX(-50%) scaleY(calc(.85 + .3 * var(--heat)));
-  border-radius:48% 48% 42% 42% / 72% 72% 28% 28%;
-  background:radial-gradient(62% 88% at 50% 92%, #fff6d8 0%, #ffd27a 32%, rgba(255,160,40,.85) 58%, rgba(255,120,0,0) 100%);
-  filter:url(#cjFlame) blur(1px);
-}
-/* main flame body */
-.key .fire .fl2{
-  width:66%;height:calc(82% + 46% * var(--heat));
-  transform:translateX(-50%);
-  border-radius:50% 50% 45% 45% / 70% 70% 30% 30%;
-  background:radial-gradient(60% 90% at 50% 94%, #ffc46b 0%, #ff8a2b 38%, rgba(255,90,0,.8) 66%, rgba(255,60,0,0) 100%);
-  filter:url(#cjFlame) blur(2px);
-  animation:flameSway 2.6s ease-in-out infinite;
-}
-/* outer glow */
-.key .fire .fl3{
-  width:126%;height:calc(84% + 40% * var(--heat));
-  transform:translateX(-50%);
-  border-radius:50% 50% 40% 40% / 65% 65% 35% 35%;
-  background:radial-gradient(55% 85% at 50% 96%, rgba(255,120,20,.85) 0%, rgba(255,80,0,.45) 45%, rgba(255,60,0,0) 100%);
-  filter:url(#cjFlame) blur(10px);opacity:.75;
-  animation:flameSway 3.4s ease-in-out infinite reverse;
-}
-.key .fire.lv1 .fl2,.key .fire.lv1 .fl3{display:none}
-.key .fire.lv2 .fl3{display:none}
-@media (prefers-reduced-motion: reduce){
-  .key .fire{display:none}
-  .key .fire.on{display:none}
-}
-@keyframes flameSway{
-  0%,100%{transform:translateX(-50%) scaleX(1) scaleY(1)}
-  35%{transform:translateX(calc(-50% - 4%)) scaleX(1.04) scaleY(.97)}
-  70%{transform:translateX(calc(-50% + 3%)) scaleX(.97) scaleY(1.04)}
-}
-/* tier 6: the key itself wobbles. Individual `rotate` composes with the
-   key's base transform, so the 90 ms press animation is not clobbered. */
-@keyframes comboWobble{
-  0%,100%{rotate:.6deg}
-  50%{rotate:-.6deg}
-}
-.key.combo-6{animation:comboWobble 900ms ease-in-out infinite}
-.key.combo-6.burst{animation:comboWobble 900ms ease-in-out infinite,comboPress 90ms ease-out}
+.key.combo-6.burst .kfx::after{animation-duration:420ms}
 
-/* warm body + border per tier: one heated key, not a wall of orange */
-.key.combo-1{
-  border-color:rgba(var(--accent-2-rgb),calc(.45 * var(--kb-fade,1)));
-  box-shadow:0 1px 0 var(--key-shadow),inset 0 1px 0 var(--key-inset),
-    0 0 0 1px rgba(var(--accent-2-rgb),calc(.2 * var(--kb-fade,1))),
-    0 0 10px rgba(var(--accent-2-rgb),calc(.1 * var(--kb-fade,1)));
-}
-.key.combo-2{
-  border-color:rgba(var(--accent-2-rgb),calc(.65 * var(--kb-fade,1)));
-  box-shadow:0 1px 0 var(--key-shadow),inset 0 1px 0 var(--key-inset),
-    0 0 0 1px rgba(var(--accent-2-rgb),calc(.42 * var(--kb-fade,1))),
-    0 0 11px rgba(var(--accent-2-rgb),calc(.18 * var(--kb-fade,1)));
-}
-.key.combo-3,.key.combo-4,.key.combo-5,.key.combo-6{
-  border-color:rgba(var(--accent-2-rgb),calc(.85 * var(--kb-fade,1)));
-  box-shadow:0 1px 0 var(--key-shadow),inset 0 1px 0 var(--key-inset),
-    0 0 0 2px rgba(var(--accent-2-rgb),calc(.55 * var(--kb-fade,1))),
-    0 0 16px rgba(var(--accent-2-rgb),calc(.26 * var(--kb-fade,1)));
-}
-.key.combo-4,.key.combo-5,.key.combo-6{
-  background-image:
-    radial-gradient(110% 70% at 50% 132%, rgba(var(--accent-2-rgb),calc(.22 * var(--kb-fade,1))), transparent 70%),
-    linear-gradient(0deg, rgba(var(--accent-rgb),calc(.26 * var(--kb-fade,1))), rgba(var(--accent-rgb),calc(.08 * var(--kb-fade,1))) 34%, transparent 62%),
-    linear-gradient(0deg,var(--tint,transparent),var(--tint,transparent));
-  background-size:100% 100%,100% 100%,100% 3px;
-  background-position:0 0,0 0,bottom;
-  background-repeat:no-repeat;
-}
-/* a recent key that has cooled: inner glow + warm bottom, no flame */
-.key.hot{
-  border-color:rgba(var(--accent-2-rgb),calc(.34 * var(--kb-fade,1)));
-  box-shadow:0 1px 0 var(--key-shadow),inset 0 1px 0 var(--key-inset),
-    inset 0 -6px 10px -4px rgba(var(--accent-2-rgb),calc(.22 * var(--kb-fade,1))),
-    0 0 0 1px rgba(var(--accent-2-rgb),calc(.12 * var(--kb-fade,1)));
-  background-image:
-    linear-gradient(0deg, rgba(var(--accent-2-rgb),calc(.10 * var(--kb-fade,1))), transparent 30%),
-    linear-gradient(0deg,var(--tint,transparent),var(--tint,transparent));
-  background-size:100% 100%,100% 100%,100% 3px;
-  background-position:0 0,0 0,bottom;
-  background-repeat:no-repeat;
-}
+/* a miss always reads as a miss, even on a heated key */
+.key.flash-bad .main{color:var(--bad)}
 
-@keyframes badgeFlash{
-  0%{opacity:0;transform:translateY(3px) scale(.7)}
-  20%{opacity:1;transform:translateY(0) scale(1)}
-  70%{opacity:1}
-  100%{opacity:0}
+/* sparks: pooled thin streaks shot out from the key edge */
+.emberlayer{position:absolute;inset:0;z-index:7;pointer-events:none;overflow:visible}
+.emberlayer .spark{
+  position:absolute;left:0;top:0;height:2px;width:var(--sl,10px);border-radius:1px;
+  background:linear-gradient(90deg,transparent,var(--spark-a) 45%,var(--spark-b));
+  transform-origin:0 50%;opacity:0;
+  animation:sparkFly var(--sd,380ms) cubic-bezier(.15,.7,.3,1) forwards;
 }
-.key .main,.key .sub,.key .bump{position:relative;z-index:1}
-.key[class*="combo-"] .main,.key[class*="combo-"] .sub,
-.key.hot .main,.key.hot .sub{text-shadow:0 1px 2px rgba(0,0,0,.95),0 0 6px rgba(0,0,0,.85),0 0 12px rgba(0,0,0,.55)}
-
-/* ---- 4. embers: pooled overlay above the keys, never clipped ---- */
-.emberlayer{
-  position:absolute;inset:0;z-index:5;pointer-events:none;overflow:visible;
-}
-.emberlayer .ember{
-  position:absolute;left:0;top:0;width:3px;height:3px;border-radius:50%;
-  background:radial-gradient(circle at 38% 38%,var(--correct) 0%,var(--accent-2) 42%,var(--accent-deep) 82%);
-  box-shadow:0 0 7px 2px rgba(var(--accent-2-rgb),calc(.55 * var(--kb-fade,1)));
-  mix-blend-mode:screen;pointer-events:none;
-  transform:translate3d(var(--ex,0px),var(--ey,0px),0);
-  animation:emberRise var(--edur,900ms) cubic-bezier(.22,.61,.36,1) forwards;
-  will-change:transform,opacity;
-}
-@keyframes emberRise{
-  0%{opacity:0;transform:translate3d(var(--ex,0px),var(--ey,0px),0) scale(.5)}
-  9%{opacity:calc(.98 * var(--kb-fade,1));
-    transform:translate3d(calc(var(--ex,0px) + var(--edx,0px) * .16),calc(var(--ey,0px) - var(--erise,44px) * .08),0) scale(1)}
-  62%{opacity:calc(.8 * var(--kb-fade,1))}
+@keyframes sparkFly{
+  0%  {opacity:calc(1 * var(--kb-fade,1));
+       transform:translate(var(--ex),var(--ey)) rotate(var(--sa)) translateX(var(--s0)) scaleX(1)}
   100%{opacity:0;
-    transform:translate3d(calc(var(--ex,0px) + var(--edx,0px)),calc(var(--ey,0px) - var(--erise,44px)),0) scale(.24)}
+       transform:translate(var(--ex),var(--ey)) rotate(var(--sa)) translateX(var(--s1)) scaleX(.25)}
 }
 
-/* ---- 5. rim: blurred glow behind the card, tier 5+ ---- */
-@keyframes rimBreathe{
-  0%,100%{opacity:.10;transform:scale(.996)}
-  50%{opacity:.14;transform:scale(1.004)}
-}
-body.combo-blaze .kbcard{position:relative}
-body.combo-blaze .kbcard::before{
-  content:"";position:absolute;inset:-12px;z-index:-1;pointer-events:none;
-  border-radius:calc(var(--r-lg) + 10px);
-  background:rgba(var(--accent-rgb),1);
-  filter:blur(18px);
-  animation:rimBreathe 4.6s ease-in-out infinite;
-}
-body.combo-max .typewrap::after{
-  content:"";position:absolute;left:8%;right:8%;bottom:-14px;height:40px;z-index:0;
-  pointer-events:none;
-  background:radial-gradient(55% 120% at 50% 0%,rgba(var(--accent-2-rgb),.22),transparent 70%);
-  filter:blur(12px);
-}
-body.combo-blaze::before{
-  content:"";position:fixed;left:0;right:0;bottom:0;height:130px;z-index:-1;
-  pointer-events:none;
-  background:radial-gradient(60% 110% at 50% 100%, rgba(var(--accent-2-rgb),.12), transparent 72%);
-}
-body.combo-blaze .bg{z-index:-2}
+/* rim: static shadow, no blur pass, no infinite animation */
+.kbcard{transition:box-shadow .4s ease}
+body.combo-blaze .kbcard{box-shadow:inset 0 1px 0 var(--surface-hi),
+  0 0 0 1px rgba(var(--accent-rgb),.22),0 0 32px -6px rgba(var(--accent-rgb),.28)}
+body.combo-max .kbcard{box-shadow:inset 0 1px 0 var(--surface-hi),
+  0 0 0 1px rgba(var(--accent-2-rgb),.4),0 0 48px -4px rgba(var(--accent-2-rgb),.34)}
+
 @media (prefers-reduced-motion: reduce){
-  .key.burst,.key.combo-6,.key.combo-6.burst,.key .fire{animation:none !important}
-  .key .fire{display:none}
+  .key::before,.key .main,.key .sub,.key .bump,.key.flash-bad{animation:none !important}
+  .key .kfx::after,.emberlayer{display:none}
+  .key .heat,.key[class*="combo-"] .heat{transition-duration:.15s}
 }
 
 /* ============================================================
@@ -1491,20 +1444,9 @@ body.dragging::after{
   .btn:hover{transform:none}
 }
 
-.fxdefs{position:absolute;width:0;height:0;overflow:hidden;pointer-events:none}
 </style>
 </head>
 <body>
-<body>
-<svg class="fxdefs" width="0" height="0" aria-hidden="true" focusable="false"><defs>
-  <filter id="cjFlame" x="-70%" y="-70%" width="240%" height="240%" color-interpolation-filters="sRGB">
-    <feTurbulence type="fractalNoise" baseFrequency="0.028 0.07" numOctaves="3" seed="4" result="n">
-      <animate attributeName="seed" dur="1.4s" values="4;11;4" repeatCount="indefinite"/>
-      <animate attributeName="baseFrequency" dur="3.2s" values="0.028 0.07;0.036 0.085;0.028 0.07" repeatCount="indefinite"/>
-    </feTurbulence>
-    <feDisplacementMap in="SourceGraphic" in2="n" scale="26" xChannelSelector="R" yChannelSelector="G"/>
-  </filter>
-</defs></svg>
 <div class="bg" aria-hidden="true"></div>
 <div class="app">
   <header>
@@ -1698,7 +1640,7 @@ body.dragging::after{
         <span class="selectwrap"><select id="selComboFx">
           <option value="off">Off</option>
           <option value="glow">Glow only</option>
-          <option value="full">Full fire</option>
+          <option value="full">Full</option>
         </select><svg class="chev" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg></span>
       </div>
 
@@ -2374,6 +2316,27 @@ function fingerTint(finger, alpha){
   if (!rgb) return 'transparent';
   return 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',' + (alpha === undefined ? 0.15 : alpha) + ')';
 }
+/* finger colour now lives on the thin keycap skirt, so it needs more alpha */
+var KEY_TINT_ALPHA = 0.4;
+
+/* Re-add a one-shot animation class, restarting it if it is still running. */
+function restartClass(el, cls){
+  if (el.classList.contains(cls)){ el.classList.remove(cls); void el.offsetWidth; }
+  el.classList.add(cls);
+}
+function keyPress(el){
+  if (!el || prefersReducedMotion()) return; /* no animationend would clear it */
+  var now = performance.now();
+  if (el.__pressAt && now - el.__pressAt < 16) return; /* flash + combo in the same keystroke */
+  el.__pressAt = now;
+  restartClass(el, 'press');
+}
+function keyAnimEnd(e){
+  var el = e.currentTarget;
+  if (e.animationName === 'capPress') el.classList.remove('press');
+  else if (e.animationName === 'kfxRing') el.classList.remove('burst');
+}
+
 function fingerOfPos(mr, mc){
   return (mr === 4 || mr === 9) ? 'thumb' : FINGERS[mc];
 }
@@ -3967,30 +3930,15 @@ function renderKeyboard(){
 
     var el = document.createElement('div');
     el.className = 'key';
-    var fire = document.createElement('div');
-    fire.className = 'fire';
-    fire.setAttribute('aria-hidden', 'true');
-    var fl1 = document.createElement('span');
-    fl1.className = 'fl1';
-    for (var f = 1; f <= 3; f++){
-      var tongue = document.createElement('i');
-      tongue.className = 't' + f;
-      fl1.appendChild(tongue);
-    }
-    fire.appendChild(fl1);
-    var fl2 = document.createElement('span');
-    fl2.className = 'fl2';
-    fire.appendChild(fl2);
-    var fl3 = document.createElement('span');
-    fl3.className = 'fl3';
-    fire.appendChild(fl3);
-    el.appendChild(fire);
-    el.__fire = fire;
-    var ring = document.createElement('i');
-    ring.className = 'burst-ring';
-    ring.setAttribute('aria-hidden', 'true');
-    ring.addEventListener('animationend', function(){ el.classList.remove('burst'); });
-    el.appendChild(ring);
+    var heat = document.createElement('i');
+    heat.className = 'heat';
+    heat.setAttribute('aria-hidden', 'true');
+    el.appendChild(heat);
+    var kfx = document.createElement('i');
+    kfx.className = 'kfx';
+    kfx.setAttribute('aria-hidden', 'true');
+    el.appendChild(kfx);
+    el.addEventListener('animationend', keyAnimEnd);
     el.dataset.mr = String(d.mr);
     el.dataset.mc = String(d.mc);
     el.style.left   = 'calc(var(--u) * ' + d.x + ')';
@@ -4003,10 +3951,11 @@ function renderKeyboard(){
       var oy = (d.ry === null || d.ry === undefined) ? d.h / 2 : d.ry - d.y;
       el.style.transformOrigin = 'calc(var(--u) * ' + ox + ') calc(var(--u) * ' + oy + ')';
     }
-    el.onclick = function(){
-      if (app.editFingers) cycleFinger(d.mr, d.mc);
+    el.onclick = function(ev){
+      var k = ev.currentTarget;
+      if (app.editFingers) cycleFinger(+k.dataset.mr, +k.dataset.mc);
     };
-    el.style.setProperty('--tint', fingerTint(d.finger));
+    el.style.setProperty('--tint', fingerTint(d.finger, KEY_TINT_ALPHA));
 
     var main = document.createElement('span');
     main.className = 'main';
@@ -4380,7 +4329,7 @@ function applyHeat(){
     var mr = +parts[0], mc = +parts[1];
     var finger = fingerOfPos(mr, mc);
 
-    if (mode === 'off'){ el.style.setProperty('--tint', fingerTint(finger)); return; }
+    if (mode === 'off'){ el.style.setProperty('--tint', fingerTint(finger, KEY_TINT_ALPHA)); return; }
 
     if (mode === 'errors'){
       var rate = keyErrorRate(mr, mc);
@@ -4521,9 +4470,11 @@ function flashPos(pos, mode){
   var el = app.keyEls.get(pos.mr + ',' + pos.mc);
   if (!el) return;
   var cls = mode === false ? 'flash-bad' : (mode === true ? 'flash-ok' : 'flash-key');
-  el.classList.remove('flash-ok', 'flash-bad', 'flash-key');
-  el.classList.add(cls);
-  setTimeout(function(){ el.classList.remove('flash-ok', 'flash-bad', 'flash-key'); }, 170);
+  ['flash-ok', 'flash-bad', 'flash-key'].forEach(function(c){ if (c !== cls) el.classList.remove(c); });
+  restartClass(el, cls);
+  if (mode !== false) keyPress(el);
+  clearTimeout(el.__flashT);
+  el.__flashT = setTimeout(function(){ el.classList.remove('flash-ok', 'flash-bad', 'flash-key'); }, 300);
 }
 
 function flashForChar(ch, ok){
@@ -5541,32 +5492,16 @@ function clearComboKeyTimer(el){
   }
 }
 
-function comboFireNode(el){
-  return el ? (el.__fire || el.querySelector('.fire')) : null;
-}
-
 function comboResetKey(el){
   if (!el) return;
   el.classList.remove('burst', 'hot');
   COMBO_TIER_CLASSES.forEach(function(c){ el.classList.remove(c); });
-  el.removeAttribute('data-combo');
-  var fire = comboFireNode(el);
-  if (fire){
-    fire.className = 'fire';
-    fire.removeAttribute('data-layers');
-  }
 }
 
-/* Take the flame off a key but leave its press ring alone. */
+/* Drop a key's tier heat but leave its press ring alone. */
 function comboDropFire(el){
   if (!el) return;
   COMBO_TIER_CLASSES.forEach(function(c){ el.classList.remove(c); });
-  el.removeAttribute('data-combo');
-  var fire = comboFireNode(el);
-  if (fire){
-    fire.className = 'fire';
-    fire.removeAttribute('data-layers');
-  }
 }
 
 function comboUnhot(el){
@@ -5617,17 +5552,11 @@ function cacheComboKeyGeom(){
   });
 }
 
-function comboFireLevel(tier){
-  if (tier >= 6) return 3;
-  if (tier === 5) return 2;
-  if (tier >= 2) return 1;
-  return 0;
-}
-
-function comboEmberCount(tier){
-  if (tier >= 5) return 3;
-  if (tier === 4) return 2;
-  if (tier === 3) return 1;
+function comboSparkCount(tier){
+  if (tier >= 6) return 6;
+  if (tier === 5) return 4;
+  if (tier === 4) return 3;
+  if (tier === 3) return 2;
   return 0;
 }
 
@@ -5650,43 +5579,40 @@ function comboEmberDone(ev){
   if (comboEmberFree.indexOf(node) === -1) comboEmberFree.push(node);
 }
 
-function spawnComboEmbers(el, count){
+function spawnComboSparks(el, count){
   var layer = app.emberLayer;
   if (!layer || !el || count <= 0) return;
   if (prefersReducedMotion() || (app.settings.comboFx || 'full') !== 'full') return;
   var g = el.__cg;
   if (!g) return;
+  var cx = g.x + g.w / 2, cy = g.y + (g.h - g.h * 0.085) / 2;   /* face centre */
+  var r0 = Math.min(g.w, g.h) * 0.46;
   for (var i = 0; i < count && comboEmbersLive < COMBO_EMBER_CAP; i++){
     var e = comboEmberFree.pop();
     if (!e){
       if (comboEmberPool.length >= COMBO_EMBER_CAP) break;
       e = document.createElement('i');
-      e.className = 'ember';
+      e.className = 'spark';
       e.addEventListener('animationend', comboEmberDone);
       comboEmberPool.push(e);
     }
-    var size = 2 + rand(3);
-    var ex = g.x + g.w * (0.18 + Math.random() * 0.64);
-    var boardW = (app.comboGeom && app.comboGeom.w) || 0;
-    if (boardW) ex = clamp(ex, 0, boardW - size);
-    e.style.width = size + 'px';
-    e.style.height = size + 'px';
-    e.style.setProperty('--ex', ex.toFixed(1) + 'px');
-    e.style.setProperty('--ey', (g.y + g.h * (0.02 + Math.random() * 0.16)).toFixed(1) + 'px');
-    e.style.setProperty('--edx', (rand(29) - 14) + 'px');
-    e.style.setProperty('--erise', (34 + rand(23)) + 'px');
-    e.style.setProperty('--edur', (700 + rand(401)) + 'ms');
+    var t = count > 1 ? i / (count - 1) - 0.5 : 0;
+    var ang = -90 + t * 150 + (rand(25) - 12);                   /* fan upward */
+    e.style.setProperty('--ex', cx.toFixed(1) + 'px');
+    e.style.setProperty('--ey', cy.toFixed(1) + 'px');
+    e.style.setProperty('--sa', ang + 'deg');
+    e.style.setProperty('--s0', r0.toFixed(1) + 'px');
+    e.style.setProperty('--s1', (r0 + 14 + rand(11)) + 'px');
+    e.style.setProperty('--sl', (7 + rand(7)) + 'px');
+    e.style.setProperty('--sd', (340 + rand(101)) + 'ms');
     layer.appendChild(e);
     comboEmbersLive++;
   }
 }
 
 function applyComboBurst(el){
-  if (el.classList.contains('burst')){
-    el.classList.remove('burst');
-    void el.offsetWidth; /* only on a repeated key: restart the one-shot ring */
-  }
-  el.classList.add('burst');
+  if (prefersReducedMotion()) return;
+  restartClass(el, 'burst');
 }
 
 function scheduleComboDecay(el){
@@ -5737,18 +5663,7 @@ function paintComboKey(el){
   COMBO_TIER_CLASSES.forEach(function(c){ el.classList.remove(c); });
   el.classList.add('combo-' + tier);
 
-  var level = prefersReducedMotion() ? 0 : comboFireLevel(tier);
-  var fire = comboFireNode(el);
-  if (tier >= 3) el.setAttribute('data-combo', String(app.combo));
-  if (fire && level > 0){
-    fire.className = 'fire on lv' + level;
-    fire.style.setProperty('--heat', Math.max(.18, Math.min(1, .18 + app.combo / 140)).toFixed(3));
-    fire.setAttribute('data-layers', String(level));
-    spawnComboEmbers(el, comboEmberCount(tier));
-  } else if (fire){
-    fire.className = 'fire';
-    fire.removeAttribute('data-layers');
-  }
+  spawnComboSparks(el, comboSparkCount(tier));
   paintComboAtmosphere(tier);
   scheduleComboDecay(el);
 }
@@ -5794,6 +5709,7 @@ function comboMilestone(){
 }
 
 function comboHit(el){
+  keyPress(el);
   app.combo++;
   if (app.combo > app.bestCombo) app.bestCombo = app.combo;
   app.lastComboKeyAt = performance.now();
