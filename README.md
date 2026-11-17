@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/logo.svg" height="56" alt="ClackJoy logo"></p>
+
 # ClackJoy
 
 **A typing trainer that learns your keyboard instead of assuming a stock one.**
