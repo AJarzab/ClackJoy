@@ -1800,7 +1800,7 @@ var SETTINGS_DEFAULTS = {
   completeSound:true, goalSound:true, comboSound:true,
   showCombo:true, comboFx:'full',
   minOpacity:0.15, softFocus:true, theme:'system', lang:'us',
-  errorSound:'thud', correctSound:'click'
+  errorSound:'thud', correctSound:'click', wordLen:'any'
 };
 
 var app = {
@@ -1925,6 +1925,7 @@ app.bestComboAll = Math.max(0, +lsGet(LS.comboBest, 0) || 0);
   if (typeof s.comboSound !== 'boolean') s.comboSound = true;
   if (typeof s.showCombo !== 'boolean') s.showCombo = true;
   if (['off','glow','full'].indexOf(s.comboFx) === -1) s.comboFx = 'full';
+  if (['any','2','3','4','5','6','7','8'].indexOf(String(s.wordLen)) === -1) s.wordLen = 'any';
   if (typeof s.minOpacity !== 'number' || !isFinite(s.minOpacity)) s.minOpacity = 0.15;
   s.minOpacity = clamp(s.minOpacity, 0.05, 0.6);
   if (['always','fade','error'].indexOf(s.kbVisibility) === -1) s.kbVisibility = 'always';
@@ -4874,9 +4875,35 @@ function shuffle(a){
   return a;
 }
 
+/* Word-length filter for the generated word runs. 'any' = the whole list,
+   '8' = 8 letters or longer. Falls back to every word if a pool is empty. */
+var WORD_LEN_OPTIONS = ['any', '2', '3', '4', '5', '6', '7', '8'];
+
+function wordPool(){
+  var v = String(app.settings.wordLen || 'any');
+  if (v === 'any') return WORDS;
+  var n = +v;
+  if (!n) return WORDS;
+  var pool = WORDS.filter(function(w){
+    return n >= 8 ? w.length >= 8 : w.length === n;
+  });
+  return pool.length ? pool : WORDS;
+}
+
+function wordLenLabel(v){
+  v = String(v || 'any');
+  if (v === 'any') return 'Any';
+  return v === '8' ? '8+ letters' : v + ' letters';
+}
+
 function genWordRun(count){
-  var out = [];
-  for (var i = 0; i < count; i++) out.push(pick(WORDS));
+  var pool = wordPool(), out = [], last = '';
+  for (var i = 0; i < count; i++){
+    var w = pick(pool), guard = 0;
+    while (pool.length > 1 && w === last && guard++ < 8) w = pick(pool);
+    last = w;
+    out.push(w);
+  }
   return out.join(' ');
 }
 
@@ -6008,7 +6035,8 @@ function renderModeLabel(){
       el.removeAttribute('aria-label');
     }
   }
-  else if (app.mode === 'words') el.textContent = 'Words · ' + app.wordCount;
+  else if (app.mode === 'words') el.textContent = 'Words · ' + app.wordCount +
+    (String(app.settings.wordLen || 'any') === 'any' ? '' : ' · ' + wordLenLabel(app.settings.wordLen));
   else if (app.mode === 'time') el.textContent = 'Time · ' + app.timeChoice + 's';
   else if (app.mode === 'custom') el.textContent = 'Custom text';
   else if (app.mode === 'weak') el.textContent = 'Weak keys';
@@ -6847,6 +6875,26 @@ function renderLessons(){
   $('#lessonProgress').textContent = done + '/' + lessonTotal();
 }
 
+/* shared "Word length" control for Words and Time */
+function wordLenRow(){
+  var cur = String(app.settings.wordLen || 'any');
+  return '<label class="row">Word length' +
+    selectWrap('<select id="wordLen">' +
+    WORD_LEN_OPTIONS.map(function(v){
+      return '<option value="' + v + '"' + (cur === v ? ' selected' : '') + '>' + wordLenLabel(v) + '</option>';
+    }).join('') + '</select>') + '</label>';
+}
+function bindWordLen(mode){
+  var el = $('#wordLen');
+  if (!el) return;
+  el.onchange = function(){
+    var v = WORD_LEN_OPTIONS.indexOf(this.value) === -1 ? 'any' : this.value;
+    app.settings.wordLen = v;
+    lsSet(LS.settings, app.settings);
+    startRun({ mode: mode });
+  };
+}
+
 function renderModeOptions(){
   var box = $('#modeOptions');
   box.innerHTML = '';
@@ -6862,8 +6910,9 @@ function renderModeOptions(){
       selectWrap('<select id="wordCount">' +
       [10, 25, 50].map(function(n){
         return '<option value="' + n + '"' + (app.wordCount === n ? ' selected' : '') + '>' + n + '</option>';
-      }).join('') + '</select>') + '</label>';
+      }).join('') + '</select>') + '</label>' + wordLenRow();
     $('#wordCount').onchange = function(){ startRun({ mode: 'words' }); };
+    bindWordLen('words');
     return;
   }
 
@@ -6872,8 +6921,9 @@ function renderModeOptions(){
       selectWrap('<select id="timeSel">' +
       [30, 60].map(function(n){
         return '<option value="' + n + '"' + (app.timeChoice === n ? ' selected' : '') + '>' + n + 's</option>';
-      }).join('') + '</select>') + '</label>';
+      }).join('') + '</select>') + '</label>' + wordLenRow();
     $('#timeSel').onchange = function(){ startRun({ mode: 'time' }); };
+    bindWordLen('time');
     return;
   }
 
