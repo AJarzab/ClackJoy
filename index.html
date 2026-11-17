@@ -1751,7 +1751,8 @@ var LS = {
   bigrams:  'silakka54.bigrams',
   texts:    'silakka54.text-bests',
   review:   'silakka54.lesson-review',
-  comboBest:'silakka54.combo-best'
+  comboBest:'silakka54.combo-best',
+  runs:     'silakka54.run-index'
 };
 var HISTORY_CAP = 500;
 
@@ -1881,6 +1882,12 @@ var app = {
   history: lsGet(LS.history, []) || [],
   lessonBests: lsGet(LS.bests, {}) || {},
   lessonReview: lsGet(LS.review, {}) || {},
+  runIndex: (function(){
+    var v = lsGet(LS.runs, null);
+    if (typeof v === 'number' && isFinite(v)) return v;
+    var h = lsGet(LS.history, []);
+    return Array.isArray(h) ? h.length : 0;   /* migrate from history length */
+  })(),
   bigramStats: lsGet(LS.bigrams, {}) || {},
   textBests: lsGet(LS.texts, {}) || {},
   days: lsGet(LS.days, {}) || {},
@@ -4619,7 +4626,18 @@ function lessonPlainTitle(l, i){
   return 'Lesson ' + (i + 1) + ', ' + l.t;
 }
 
-function runCount(){ return app.history.length; }
+function runCount(){ return app.runIndex || 0; }
+
+/* Primary lesson action: next new lesson first; reviews only once the list is done. */
+function lessonNextTarget(){
+  var nextNew = nextLessonIndex(app.lessonIdx, false);
+  if (nextNew !== -1) return { idx: nextNew, label: 'Next lesson' };
+  var rev = dueReviewLesson(app.lessonIdx);
+  if (rev !== -1) return { idx: rev, label: 'Review due' };
+  var weak = weakestLessonIndex(app.lessonIdx);
+  if (weak !== -1) return { idx: weak, label: 'Review weakest' };
+  return { idx: -1, label: 'Retry' };
+}
 
 /* spaced review: due when its scheduled run count has passed */
 function reviewLessonDue(i){
@@ -4632,7 +4650,7 @@ function dueReviewLesson(exclude){
     var i = +k, r = app.lessonReview[k];
     if (!r || typeof r.due !== 'number') return;
     if (i === exclude || r.due > runCount()) return;
-    if (LESSONS[i] && LESSONS[i].skip) return;
+    if (!LESSONS[i] || LESSONS[i].skip) return;
     if (r.due < bestDue){ bestDue = r.due; best = i; }
   });
   return best;
@@ -5030,21 +5048,24 @@ function genSmartRun(count){
   Object.keys(app.keyStats).forEach(function(ch){
     var st = app.keyStats[ch];
     if (!st || !st.a || ch.length !== 1) return;
-    var err = (st.e || 0) / st.a;
-    var slow = st.ms ? clamp((st.ms - 90) / 310, 0, 1) : 0;
+    var a = st.a || 0;
+    var err = (st.e || 0) / (a + 5);              /* shrink toward 0 with few samples */
+    var slow = (st.ms && isFinite(st.ms)) ? clamp((st.ms - 90) / 310, 0, 1) : 0;
     cw[ch.toLowerCase()] = 0.55 * err + 0.45 * slow;
   });
   var scored = pool.map(function(w){
-    var sc = 1;
-    for (var i = 0; i < w.length; i++) sc += 3 * (cw[w.charAt(i)] || 0);
+    var bonus = 0;
+    for (var i = 0; i < w.length; i++) bonus += 3 * (cw[w.charAt(i)] || 0);
+    var sc = 1 + bonus / Math.max(1, w.length);   /* average, so long words do not win by default */
     for (var j = 0; j + 1 < w.length; j++){
       var bg = app.bigramStats[w.substr(j, 2)];
-      if (bg && bg.ms) sc += clamp((bg.ms - 110) / 260, 0, 1) * 1.5;
+      if (bg && bg.ms && isFinite(bg.ms)) sc += clamp((bg.ms - 110) / 260, 0, 1) * 1.5;
     }
     return { w: w, sc: sc };
   });
   var total = 0;
-  scored.forEach(function(o){ total += o.sc; });
+  scored.forEach(function(o){ total += isFinite(o.sc) ? o.sc : 1; });
+  if (!isFinite(total) || total <= 0) total = scored.length;
   var out = [], last = '';
   for (var k = 0; k < count; k++){
     var r = Math.random() * total, word = scored[scored.length - 1].w;
@@ -6021,6 +6042,13 @@ function metroIntervalMs(){
 function stopMetronome(){
   if (metroId){ clearInterval(metroId); metroId = null; }
 }
+if (typeof document !== 'undefined' && document.addEventListener){
+  document.addEventListener('visibilitychange', function(){
+    if (document.hidden) stopMetronome();
+    else if (app.started && !app.finished) startMetronome();
+  });
+}
+
 function startMetronome(){
   stopMetronome();
   if (!app.settings.metronome) return;
@@ -6056,7 +6084,7 @@ function generateForMode(mode){
   if (mode === 'custom'){
     var ta = $('#customText');
     var v = ta ? String(ta.value).replace(/\s+/g, ' ').trim() : '';
-    return v || 'The quick brown fox jumps over the lazy dog.';
+    return v || app.customSeed || 'The quick brown fox jumps over the lazy dog.';
   }
   if (mode === 'words'){
     var wc = $('#wordCount');
@@ -6069,7 +6097,11 @@ function generateForMode(mode){
     return genWordRun(36);
   }
   if (mode === 'weak') return genWeak();
-  if (mode === 'smart') return genSmartRun(app.wordCount || 25);
+  if (mode === 'smart'){
+    var swc = $('#wordCount');
+    if (swc) app.wordCount = +swc.value || app.wordCount;
+    return genSmartRun(app.wordCount || 25);
+  }
   if (mode === 'lesson') return genLesson(app.lessonIdx);
   if (mode === 'ngram') return genNgram(app.ngramWeak);
   if (mode === 'layers') return genLayerSymbols();
@@ -6274,7 +6306,9 @@ function wordAtIndex(i){
 function noteMistakeWord(i){
   if (!app.runMissWords) app.runMissWords = [];
   var w = wordAtIndex(i);
-  if (w && app.runMissWords.length < 60) app.runMissWords.push(w);
+  if (!w || app.runMissWords.length >= 60) return;
+  if (app.runMissWords[app.runMissWords.length - 1] === w) return;
+  app.runMissWords.push(w);
 }
 function uniqueMissWords(){
   var seen = Object.create(null), out = [];
@@ -6378,13 +6412,15 @@ function typeChar(ch){
 
   /* hold until correct: rewind to the start of the word and retype it */
   if (app.settings.holdWord){
-    var ws = wordStartIndex(app.idx), rewind = 0, q;
+    var ws = wordStartIndex(app.idx), oldIdx = app.idx, rewind = 0, q;
     for (q = ws; q < app.idx; q++) if (app.statuses[q] === 1) rewind++;
     for (q = ws; q <= app.idx && q < app.statuses.length; q++) app.statuses[q] = 0;
+    /* the retyped characters were already counted: undo both sides of the ratio */
     app.correct = Math.max(0, app.correct - rewind);
+    app.keystrokes = Math.max(0, app.keystrokes - rewind);
     app.idx = ws;
     app.missAt = -1;
-    paintWindow(app.idx);
+    for (q = ws - 1; q <= oldIdx + 2; q++) if (q >= 0 && q < app.spans.length) paintChar(q);
     updateHud();
     updateTarget();
     scrollCaret();
@@ -6539,6 +6575,8 @@ function finishRun(){
     });
     if (app.history.length > HISTORY_CAP) app.history = app.history.slice(-HISTORY_CAP);
     lsSet(LS.history, app.history);
+    app.runIndex = (app.runIndex || 0) + 1;
+    lsSet(LS.runs, app.runIndex);
     lsSet(LS.stats, app.keyStats);
     lsSet(LS.bigrams, app.bigramStats);
     addDaySession(stats.elapsed, app.keystrokes, stats.wpm);
@@ -6636,8 +6674,13 @@ function showResults(stats, flags){
       }).join('') + '</div></div>';
   }
 
-  var nextLabel = 'Retry';
-  if (app.mode === 'lesson' && nextLessonIndex(app.lessonIdx, false) !== -1) nextLabel = 'Next lesson';
+  var nextLabel = 'New run';
+  var dueRev = -1;
+  if (app.mode === 'lesson'){
+    var lessonNext = lessonNextTarget();
+    nextLabel = lessonNext.label;
+    dueRev = dueReviewLesson(app.lessonIdx);
+  }
   else if (app.mode === 'texts') nextLabel = 'Next text';
   else if (app.mode === 'ngram' || app.mode === 'words' || app.mode === 'time' || app.mode === 'weak' || app.mode === 'smart') nextLabel = 'New set';
 
@@ -6660,6 +6703,9 @@ function showResults(stats, flags){
       (uniqueMissWords().length && !app.tokens
         ? '<button class="btn" id="resMiss">Practise misses <b>×' + uniqueMissWords().length + '</b></button>'
         : '') +
+      (dueRev !== -1
+        ? '<button class="btn" id="resRev">Review lesson ' + (dueRev + 1) + '</button>'
+        : '') +
       '<button class="btn" id="resRetry">Retry<span class="kbd">Tab</span></button>' +
       '<button class="btn primary" id="resNext">' + nextLabel + '<span class="kbd">Enter</span></button>' +
     '</div>';
@@ -6671,12 +6717,27 @@ function showResults(stats, flags){
     else startRun({ text: app.text });
   };
   $('#resNext').onclick = nextRun;
+  if ($('#resRev')){
+    $('#resRev').onclick = function(){
+      hideModal();
+      app.mode = 'lesson';
+      app.lessonIdx = dueRev;
+      renderModes();
+      renderLessons();
+      renderModeOptions();
+      startRun({ mode: 'lesson' });
+    };
+  }
   if ($('#resMiss')){
     $('#resMiss').onclick = function(){
       var words = uniqueMissWords();
       if (!words.length) return;
       hideModal();
-      startRun({ mode: 'custom', text: words.join(' ') });
+      app.customSeed = words.join(' ');
+      app.mode = 'custom';
+      startRun({ mode: 'custom', text: app.customSeed });
+      renderModes();
+      renderModeOptions();
     };
   }
   $('#modal').classList.add('show');
@@ -6689,10 +6750,7 @@ function hideModal(){
 function nextRun(){
   hideModal();
   if (app.mode === 'lesson'){
-    /* spaced review first, then the next new lesson, then the weakest one */
-    var nextIdx = dueReviewLesson(app.lessonIdx);
-    if (nextIdx === -1) nextIdx = nextLessonIndex(app.lessonIdx, false);
-    if (nextIdx === -1) nextIdx = weakestLessonIndex(app.lessonIdx);
+    var nextIdx = lessonNextTarget().idx;
     if (nextIdx !== -1){
       app.lessonIdx = nextIdx;
       app.mode = 'lesson';
@@ -7419,7 +7477,9 @@ function handSummary(){
     var pos = opts[0], st = app.keyStats[ch];
     if (!st) return;
     var el = app.keyEls && app.keyEls.get(pos.mr + ',' + pos.mc);
-    var left = (el && el.__cg && boardW) ? (el.__cg.x < boardW / 2) : (pos.mc < 7);
+    var left = (el && el.__cg && boardW)
+      ? (el.__cg.x + el.__cg.w / 2 < boardW / 2)
+      : (pos.mr < BOARD_ROWS / 2);
     var h = out[left ? 'left' : 'right'];
     h.a += st.a || 0;
     h.e += st.e || 0;
@@ -7571,6 +7631,8 @@ function exportData(){
     bigrams: app.bigramStats,
     days: app.days,
     lessonBests: app.lessonBests,
+    lessonReview: app.lessonReview,
+    runIndex: app.runIndex,
     textBests: app.textBests,
     layout: app.layers
   };
@@ -7597,6 +7659,10 @@ function resetStats(){
   if (!ok) return;
   app.history = [];
   app.keyStats = {};
+  app.lessonReview = {};
+  app.runIndex = 0;
+  lsSet(LS.review, {});
+  lsSet(LS.runs, 0);
   app.bigramStats = {};
   app.days = {};
   app.lessonBests = {};
@@ -7764,11 +7830,15 @@ function onKeyDown(e){
   if (k === 'Tab' || k === 'Escape'){
     e.preventDefault();
     app.focused = true;
+    var retry = $('#resRetry');
+    if ($('#modal').classList.contains('show') && retry){ retry.click(); return; }
     startRun({});
     return;
   }
 
   if (k === 'Enter' && $('#modal').classList.contains('show')){
+    var fe = e.target;
+    if (fe && fe.tagName === 'BUTTON' && fe.closest && fe.closest('#modal')) return;
     e.preventDefault();
     nextRun();
     return;
@@ -7879,7 +7949,7 @@ function bindSlider(id){
     lsSet(LS.settings, app.settings);
     if (id === 'rngMinOp'){ app.kbAccAnchor = null; applyKeyboardVisibility(true); }
     else if (id === 'rngGoal'){ renderDaily(); }
-    else if (id === 'targetWpm'){ renderLessons(); }
+    else if (id === 'targetWpm'){ renderLessons(); if (metroId) startMetronome(); }
   };
 }
 
@@ -8029,7 +8099,12 @@ function bindUI(){
   };
   $('#optStop').onchange = function(){ s.stopOnError = this.checked; save(); };
   $('#optHold').onchange = function(){ s.holdWord = this.checked; save(); };
-  $('#optMetro').onchange = function(){ s.metronome = this.checked; save(); if (this.checked && app.started) startMetronome(); else stopMetronome(); };
+  $('#optMetro').onchange = function(){
+    s.metronome = this.checked;
+    save();
+    if (this.checked && app.started && !app.finished) startMetronome();
+    else stopMetronome();
+  };
   $('#optCombo').onchange = function(){
     s.showCombo = this.checked;
     save();
